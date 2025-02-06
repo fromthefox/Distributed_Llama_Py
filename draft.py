@@ -1,5 +1,11 @@
 
+"""
+考虑到计算量:QKV >> RoPE, 因此完全可以把QKV在Others node做,做完的结果在Root做RoPE和Rotated Multiplication
+LIKE:
+R: Embedding -> Norm -> Sync1 {Input & Weights} -> Sync2 {RoPE & Mask & Attention} -> Sync3 -> Sync4 -> Next loop
+W: Sync1 -> QKV -> Sync2 -> Sync3 -> Wo-W3 -> Sync4
 
+"""
 
 final_embedding = token_embeddings_unnormalized
 for layer in range(n_layers):
@@ -12,21 +18,28 @@ for layer in range(n_layers):
     v_layer = model[f"layers.{layer}.attention.wv.weight"]
     v_layer = v_layer.view(n_kv_heads, v_layer.shape[0] // n_kv_heads, dim)
     w_layer = model[f"layers.{layer}.attention.wo.weight"]
+    # 这里直接把qkv权重矩阵发送给其他node, 以及layer_embedding_norm
+
+    # 后面的head的循环操作在各个node执行
     for head in range(n_heads):
         q_layer_head = q_layer[head]
         k_layer_head = k_layer[head//4]
         v_layer_head = v_layer[head//4]
+
         q_per_token = torch.matmul(layer_embedding_norm, q_layer_head.T)
         k_per_token = torch.matmul(layer_embedding_norm, k_layer_head.T)
         v_per_token = torch.matmul(layer_embedding_norm, v_layer_head.T)
+
         q_per_token_split_into_pairs = q_per_token.float().view(q_per_token.shape[0], -1, 2)
         q_per_token_as_complex_numbers = torch.view_as_complex(q_per_token_split_into_pairs)
         q_per_token_split_into_pairs_rotated = torch.view_as_real(q_per_token_as_complex_numbers * freqs_cis)
         q_per_token_rotated = q_per_token_split_into_pairs_rotated.view(q_per_token.shape)
+
         k_per_token_split_into_pairs = k_per_token.float().view(k_per_token.shape[0], -1, 2)
         k_per_token_as_complex_numbers = torch.view_as_complex(k_per_token_split_into_pairs)
         k_per_token_split_into_pairs_rotated = torch.view_as_real(k_per_token_as_complex_numbers * freqs_cis)
         k_per_token_rotated = k_per_token_split_into_pairs_rotated.view(k_per_token.shape)
+
         qk_per_token = torch.matmul(q_per_token_rotated, k_per_token_rotated.T)/(128)**0.5
         mask = torch.full((len(token_embeddings_unnormalized), len(token_embeddings_unnormalized)), float("-inf"))
         mask = torch.triu(mask, diagonal=1)
