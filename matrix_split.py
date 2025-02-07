@@ -29,6 +29,7 @@ def split_matrix(matrix, ratio, IS_ROW):
     else:
         raise ValueError("IS_ROW value error")
     
+    # chunks is tuple type
     return chunks
     
     
