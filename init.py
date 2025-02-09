@@ -9,7 +9,7 @@ import torch
 import json
 import matplotlib.pyplot as plt
 
-def load_model(model_path, tokenizer_path, config_path):
+def load_file(model_path, tokenizer_path, config_path):
     model = torch.load(model_path)
     special_tokens = [
             "<|begin_of_text|>",

@@ -4,7 +4,6 @@
 LIKE:
 R: Embedding -> Norm -> Sync1 {Input & Weights} -> Sync2 {RoPE & Mask & Attention} -> Sync3 -> Sync4 -> Next loop
 W: Sync1 -> QKV -> Sync2 -> Sync3 -> Wo-W3 -> Sync4
-
 """
 
 final_embedding = token_embeddings_unnormalized

@@ -103,17 +103,17 @@ class TCPServer:
             pass
         self.connection_manager.close_all()
 
-if __name__ == "__main__":
-    import time
-    server = TCPServer(port=9999)
-    server_thread = threading.Thread(target=server.start)
-    server_thread.start()
-    time.sleep(10)
-    try:
-        # 示例使用：需要先有客户端连接
-        test_address = ('127.0.0.1', 54321)  # 假设的客户端地址
-        response = server.send_data(test_address, b"ping")
-        print(f"Received response: {response}")
-    finally:
-        server.shutdown()
-        server_thread.join()
+# if __name__ == "__main__":
+#     import time
+#     server = TCPServer(port=9999)
+#     server_thread = threading.Thread(target=server.start)
+#     server_thread.start()
+#     time.sleep(10)
+#     try:
+#         # 示例使用：需要先有客户端连接
+#         test_address = ('127.0.0.1', 54321)  # 假设的客户端地址
+#         response = server.send_data(test_address, b"ping")
+#         print(f"Received response: {response}")
+#     finally:
+#         server.shutdown()
+#         server_thread.join()

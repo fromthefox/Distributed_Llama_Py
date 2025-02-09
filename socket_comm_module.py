@@ -36,3 +36,7 @@ def _recv_all(sock: socket.socket, n: int):
         data.extend(packet)
     return bytes(data)
 
+def read_network_config(network_config: dict):
+    addrs_list = network_config["addrs_list"]
+    ports_list = network_config["ports_list"]
+    return addrs_list, ports_list
