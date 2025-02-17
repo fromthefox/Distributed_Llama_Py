@@ -4,32 +4,27 @@ split the matrix into uneven pieces
 """
 import torch
 
-def split_matrix(matrix, ratio, IS_ROW):
+def split_matrix(matrix, ratios_list, dim):
     """
-    split the matrix and return the res.
-    matrix: raw matrix, tensor, 2 dims
-    ratio: the split ratio of matrix, list
-    IS_ROW: 1 means row_split, 0 means col_split, bool
+    Split the matrix along specified dimension and return the chunks.
+    matrix: raw matrix, tensor, n dims
+    ratios_list: the split ratio of matrix, list
+    dim: the dimension to split (0-based index)
     """
-    pieces_num = sum(ratio)
-    if IS_ROW == 1:
-        if matrix.shape[0] % pieces_num != 0:
-            raise ValueError("column not divisible")
-        piece_size = matrix.shape[0] // pieces_num
-        # // means the ans is int type
-        split_tuple = tuple(i * piece_size for i in ratio)
-        print(split_tuple)
-        chunks = torch.split(tensor=matrix, split_size_or_sections=split_tuple, dim=0)
-    elif IS_ROW == 0:
-        if matrix.shape[1] % pieces_num != 0:
-            raise ValueError("row not divisible")
-        piece_size = matrix.shape[1] // pieces_num
-        split_tuple = tuple(i * piece_size for i in ratio)
-        chunks = torch.split(tensor=matrix, split_size_or_sections=split_tuple, dim=1)
-    else:
-        raise ValueError("IS_ROW value error")
+    pieces_num = sum(ratios_list)
+    shape_dim = matrix.shape[dim]
     
-    # chunks is tuple type
+    if shape_dim % pieces_num != 0:
+        raise ValueError(f"Dimension {dim} ({shape_dim}) not divisible by {pieces_num}")
+    
+    piece_size = shape_dim // pieces_num
+    split_tuple = tuple(i * piece_size for i in ratios_list)
+    
+    # Validate split_tuple
+    if sum(split_tuple) != shape_dim:
+        raise ValueError(f"split_tuple {split_tuple} sum does not match shape dimension {shape_dim}")
+    
+    chunks = torch.split(tensor=matrix, split_size_or_sections=split_tuple, dim=dim)
+    
+    # chunks is a tuple type
     return chunks
-    
-    

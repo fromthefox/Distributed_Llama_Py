@@ -4,6 +4,10 @@ api of communication modules using SOCKET
 import socket
 import threading
 import struct
+import struct
+import pickle
+import io
+import torch
 
 def send_message(sock: socket.socket, data: bytes):
     """发送带长度前缀的消息"""
@@ -41,3 +45,11 @@ def read_network_config(network_config: dict):
     ports_list = network_config["ports_list"]
     return addrs_list, ports_list
 
+def pack_tensor(tensor):
+    buffer = io.BytesIO()
+    torch.save(tensor, buffer)
+    tensor_bytes = buffer.getvalue()
+    return tensor_bytes
+
+def unpack_tensor(tensor_bytes):
+    return torch.load(io.BytesIO(tensor_bytes))

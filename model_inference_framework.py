@@ -27,6 +27,7 @@ def inference_server(user_config: dict) -> None:
     freqs_for_each_token = torch.outer(torch.arange(tokens_length), freqs)
     freqs_cis = torch.polar(torch.ones_like(freqs_for_each_token), freqs_for_each_token)
     ratios_list = user_config["ratios"]
+    addrs_list = user_config["addrs"]
 
     final_embedding = token_embeddings_unnormalized
     for layer in range(config.n_layers):
@@ -46,6 +47,13 @@ def inference_server(user_config: dict) -> None:
         # ---- 然后Root再计算后续的操作 得到需要的qkv_attention_store
         # ---- 然后考虑w是否分布式
         # 把这部分实现——Deadline@2.23
+        for i in range(len(ratios_list)):
+            # 依次发送qkv
+            target_addr = addrs_list[i]
+            
+
+
+
 
         # ---- ----
         for head in range(config.n_heads):
