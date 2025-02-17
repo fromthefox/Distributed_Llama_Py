@@ -39,11 +39,13 @@ def inference_server(user_config: dict) -> None:
         v_layer = model[f"layers.{layer}.attention.wv.weight"]
         v_layer = v_layer.view(config.n_kv_heads, v_layer.shape[0] // config.n_kv_heads, config.dim)
         w_layer = model[f"layers.{layer}.attention.wo.weight"]
-        # 这里直接把qkv权重矩阵发送给其他node, 以及layer_embedding_norm
 
-        # 后面的head的循环操作在各个node执行
 
-        # ---- 在这里直接把Embedding结果和q/k/v_layer广播给node, 然后node全部计算完直接返回给root ----
+        # ---- 在这里直接把Embedding结果(layer_embedding_norm)和q/k/v_layer广播给node, 然后node全部计算完直接返回给root ----
+        # ---- 相当于Root 拿到的是所有的q_per_token|k_per_token|v_per_token
+        # ---- 然后Root再计算后续的操作 得到需要的qkv_attention_store
+        # ---- 然后考虑w是否分布式
+        # 把这部分实现——Deadline@2.23
 
         # ---- ----
         for head in range(config.n_heads):
