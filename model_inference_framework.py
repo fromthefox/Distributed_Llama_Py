@@ -50,7 +50,8 @@ def inference_server(user_config: dict) -> None:
         for i in range(len(ratios_list)):
             # 依次发送qkv
             target_addr = addrs_list[i]
-            
+            # 对qkv的第二维度进行切分 （0，1，2）中的1维度
+
 
 
 
