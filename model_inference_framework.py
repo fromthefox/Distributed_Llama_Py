@@ -5,7 +5,6 @@ import model_inference_module
 import init
 import socket_server
 import socket_client
-import matrix_split
 import socket_comm_module
 import threading
 import time
@@ -53,16 +52,16 @@ def inference_server(user_config: dict) -> None:
         # 把这部分实现——Deadline@2.23
 
         # split qkv matrix
-        q_chunks = matrix_split.split_matrix(matrix=q_layer, ratios_list=ratios_list, dim=1)
+        q_chunks = model_inference_module.split_matrix(matrix=q_layer, ratios_list=ratios_list, dim=1)
         q_chunks_bytes = socket_comm_module.pack_tensor(tensor=q_chunks)
-        k_chunks = matrix_split.split_matrix(matrix=k_layer, ratios_list=ratios_list, dim=1)
+        k_chunks = model_inference_module.split_matrix(matrix=k_layer, ratios_list=ratios_list, dim=1)
         k_chunks_bytes = socket_comm_module.pack_tensor(tensor=k_chunks)
-        v_chunks = matrix_split.split_matrix(matrix=v_layer, ratios_list=ratios_list, dim=1)
+        v_chunks = model_inference_module.split_matrix(matrix=v_layer, ratios_list=ratios_list, dim=1)
         v_chunks_bytes = socket_comm_module.pack_tensor(tensor=v_chunks)
 
-        q_per_token_all_heads = []
-        k_per_token_all_heads = []
-        v_per_token_all_heads = []
+        q_per_token_all_heads_list = []
+        k_per_token_all_heads_list = []
+        v_per_token_all_heads_list = []
 
         # server send qkv matrix and embedding res to client and finish the calculation
         for i in range(len(ratios_list)):
@@ -74,14 +73,16 @@ def inference_server(user_config: dict) -> None:
             response_embedding = server.send_data(target_addr, layer_embedding_norm_bytes)
             if response_embedding == "Received":
                 response_q_per_token_all_heads_piece = server.send_data(target_addr, q_chunks_bytes)
-                q_per_token_all_heads.append(response_q_per_token_all_heads_piece)
+                q_per_token_all_heads_list.append(response_q_per_token_all_heads_piece)
                 response_k_per_token_all_heads_piece = server.send_data(target_addr, k_chunks_bytes)
-                k_per_token_all_heads.append(response_k_per_token_all_heads_piece)
+                k_per_token_all_heads_list.append(response_k_per_token_all_heads_piece)
                 response_v_per_token_all_heads_piece = server.send_data(target_addr, v_chunks_bytes)
-                v_per_token_all_heads.append(response_v_per_token_all_heads_piece)
+                v_per_token_all_heads_list.append(response_v_per_token_all_heads_piece)
 
         # cat the pieces together
-        
+        q_per_token_all_heads = model_inference_module.concat_tensors(tensor_list=q_per_token_all_heads_list, dim=2)
+        k_per_token_all_heads = model_inference_module.concat_tensors(tensor_list=k_per_token_all_heads_list, dim=2)
+        v_per_token_all_heads = model_inference_module.concat_tensors(tensor_list=v_per_token_all_heads_list, dim=2)
 
         for head in range(config.n_heads):
             # q_layer_head = q_layer[head]
@@ -92,9 +93,9 @@ def inference_server(user_config: dict) -> None:
             # k_per_token = torch.matmul(layer_embedding_norm, k_layer_head.T)
             # v_per_token = torch.matmul(layer_embedding_norm, v_layer_head.T)
 
-            q_per_token = response_q_per_token_all_heads[0]
-            k_per_token = response_k_per_token_all_heads[head//4]
-            v_per_token = response_v_per_token_all_heads[head//4]
+            q_per_token = q_per_token_all_heads[0]
+            k_per_token = k_per_token_all_heads[head//4]
+            v_per_token = v_per_token_all_heads[head//4]
 
             q_per_token_split_into_pairs = q_per_token.float().view(q_per_token.shape[0], -1, 2)
             q_per_token_as_complex_numbers = torch.view_as_complex(q_per_token_split_into_pairs)
