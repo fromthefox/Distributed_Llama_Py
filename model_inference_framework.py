@@ -33,6 +33,8 @@ def inference_server(user_config: dict) -> None:
     for layer in range(config.n_layers):
         qkv_attention_store = []
         layer_embedding_norm = model_inference_module.rms_norm(final_embedding, model[f"layers.{layer}.attention_norm.weight"])
+        
+        # load model weights
         q_layer = model[f"layers.{layer}.attention.wq.weight"]
         q_layer = q_layer.view(config.n_heads, q_layer.shape[0] // config.n_heads, config.dim)
         k_layer = model[f"layers.{layer}.attention.wk.weight"]
@@ -40,40 +42,59 @@ def inference_server(user_config: dict) -> None:
         v_layer = model[f"layers.{layer}.attention.wv.weight"]
         v_layer = v_layer.view(config.n_kv_heads, v_layer.shape[0] // config.n_kv_heads, config.dim)
         w_layer = model[f"layers.{layer}.attention.wo.weight"]
-
+        # layer_embedding_norm.shape -> input_length x 4096
+        # q_layer.shape -> 32 x 128 x 4096
+        # k_layer.shape and v_layer.shape -> 8 x 128 x 4096
 
         # ---- 在这里直接把Embedding结果(layer_embedding_norm)和q/k/v_layer广播给node, 然后node全部计算完直接返回给root ----
         # ---- 相当于Root 拿到的是所有的q_per_token|k_per_token|v_per_token
         # ---- 然后Root再计算后续的操作 得到需要的qkv_attention_store
         # ---- 然后考虑w是否分布式
         # 把这部分实现——Deadline@2.23
+
+        # split qkv matrix
+        q_chunks = matrix_split.split_matrix(matrix=q_layer, ratios_list=ratios_list, dim=1)
+        q_chunks_bytes = socket_comm_module.pack_tensor(tensor=q_chunks)
+        k_chunks = matrix_split.split_matrix(matrix=k_layer, ratios_list=ratios_list, dim=1)
+        k_chunks_bytes = socket_comm_module.pack_tensor(tensor=k_chunks)
+        v_chunks = matrix_split.split_matrix(matrix=v_layer, ratios_list=ratios_list, dim=1)
+        v_chunks_bytes = socket_comm_module.pack_tensor(tensor=v_chunks)
+
+        q_per_token_all_heads = []
+        k_per_token_all_heads = []
+        v_per_token_all_heads = []
+
+        # server send qkv matrix and embedding res to client and finish the calculation
         for i in range(len(ratios_list)):
             # 依次发送qkv
             target_addr = addrs_list[i]
-            # 对qkv的第二维度进行切分 （0，1，2）中的1维度
 
+            # send embedding res
+            layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm)
+            response_embedding = server.send_data(target_addr, layer_embedding_norm_bytes)
+            if response_embedding == "Received":
+                response_q_per_token_all_heads_piece = server.send_data(target_addr, q_chunks_bytes)
+                q_per_token_all_heads.append(response_q_per_token_all_heads_piece)
+                response_k_per_token_all_heads_piece = server.send_data(target_addr, k_chunks_bytes)
+                k_per_token_all_heads.append(response_k_per_token_all_heads_piece)
+                response_v_per_token_all_heads_piece = server.send_data(target_addr, v_chunks_bytes)
+                v_per_token_all_heads.append(response_v_per_token_all_heads_piece)
 
+        # cat the pieces together
+        
 
-
-
-        # ---- ----
         for head in range(config.n_heads):
-            q_layer_head = q_layer[head]
-            k_layer_head = k_layer[head//4]
-            v_layer_head = v_layer[head//4]
+            # q_layer_head = q_layer[head]
+            # k_layer_head = k_layer[head//4]
+            # v_layer_head = v_layer[head//4]
 
-            # ---- 分发 ----
+            # q_per_token = torch.matmul(layer_embedding_norm, q_layer_head.T)
+            # k_per_token = torch.matmul(layer_embedding_norm, k_layer_head.T)
+            # v_per_token = torch.matmul(layer_embedding_norm, v_layer_head.T)
 
-            q_per_token = torch.matmul(layer_embedding_norm, q_layer_head.T)
-            k_per_token = torch.matmul(layer_embedding_norm, k_layer_head.T)
-            v_per_token = torch.matmul(layer_embedding_norm, v_layer_head.T)
-
-            # q_chunks = matrix_split.split_matrix(q_layer_head, ratios_list, 0)
-            # k_chunks = matrix_split.split_matrix(k_layer_head, ratios_list, 0)
-            # v_chunks = matrix_split.split_matrix(v_layer_head, ratios_list, 0)
-
-
-            # ---- 收集 ----
+            q_per_token = response_q_per_token_all_heads[0]
+            k_per_token = response_k_per_token_all_heads[head//4]
+            v_per_token = response_v_per_token_all_heads[head//4]
 
             q_per_token_split_into_pairs = q_per_token.float().view(q_per_token.shape[0], -1, 2)
             q_per_token_as_complex_numbers = torch.view_as_complex(q_per_token_split_into_pairs)

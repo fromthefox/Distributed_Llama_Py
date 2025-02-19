@@ -26,5 +26,5 @@ def split_matrix(matrix, ratios_list, dim):
     
     chunks = torch.split(tensor=matrix, split_size_or_sections=split_tuple, dim=dim)
     
-    # chunks is a tuple type
+
     return chunks
