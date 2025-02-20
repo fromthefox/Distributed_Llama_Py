@@ -1,6 +1,8 @@
 import socket
 import threading
-from socket_comm_module import send_message, receive_message, unpack_tensor
+from socket_comm_module import send_message, receive_message, pack_tensor,unpack_tensor
+import torch
+
 
 class TCPClient:
     """客户端实现"""
@@ -18,11 +20,20 @@ class TCPClient:
                 if not data:
                     break
                 
-                # 业务处理逻辑（示例：大写转换）
                 data_tensor = unpack_tensor(data)
-                print("data_tensor")
-                print(data_tensor)
-                response = b"OKT"
+                if len(data_tensor.shape) == 2:
+                    input_embedding = data_tensor
+                    print('Received')
+                    response = b'Received'
+                else:
+                    matrix = data_tensor
+                    matrix_res = torch.empty(matrix.shape[0], input_embedding.shape[0], matrix.shape[1])
+                    if input_embedding == None:
+                        raise ValueError("input_embedding is None!!")
+                    else:
+                        for i in range(matrix.shape[0]):
+                            matrix_res[i] = torch.matmul(input_embedding, matrix[i].T)
+                    response = pack_tensor(matrix_res)
                 
                 send_message(self.sock, response)
             except (ConnectionResetError, BrokenPipeError):

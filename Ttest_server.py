@@ -21,7 +21,6 @@ server_thread.start()
 time.sleep(20)
 
 q_chunks = model_inference_module.split_matrix(matrix=tensor_q, ratios_list=ratios_list, dim=1)
-q_chunks_bytes = socket_comm_module.pack_tensor(q_chunks)
 q_per_token_all_heads_list = []
 
 for i in range(len(ratios_list)):
@@ -29,10 +28,17 @@ for i in range(len(ratios_list)):
     input_embedding_bytes = socket_comm_module.pack_tensor(input_embedding)
     response_embedding = server.send_data(target_addr, input_embedding_bytes)
     print(response_embedding)
-    if response_embedding == "Received":
-        response_q_per_token_all_heads_piece = server.send_data(target_addr, q_chunks_bytes)
+    if response_embedding == b"Received":
+        q_chunks_bytes = socket_comm_module.pack_tensor(q_chunks[i])
+        response_q_per_token_all_heads_piece_bytes = server.send_data(target_addr, q_chunks_bytes)
+        response_q_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_q_per_token_all_heads_piece_bytes)
+        print(f"response_q_per_token_all_heads_piece from {target_addr}")
+        print(response_q_per_token_all_heads_piece)
         q_per_token_all_heads_list.append(response_q_per_token_all_heads_piece)
 
 q_per_token_all_heads = model_inference_module.concat_tensors(tensor_list=q_per_token_all_heads_list, dim=2)
 
 print(q_per_token_all_heads)
+print("--------------------------------------")
+real_res = torch.matmul(input_embedding, tensor_q[0].T)
+print(real_res)
