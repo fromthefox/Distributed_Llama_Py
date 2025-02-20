@@ -53,12 +53,9 @@ def inference_server(user_config: dict) -> None:
 
         # split qkv matrix
         q_chunks = model_inference_module.split_matrix(matrix=q_layer, ratios_list=ratios_list, dim=1)
-        q_chunks_bytes = socket_comm_module.pack_tensor(tensor=q_chunks)
         k_chunks = model_inference_module.split_matrix(matrix=k_layer, ratios_list=ratios_list, dim=1)
-        k_chunks_bytes = socket_comm_module.pack_tensor(tensor=k_chunks)
         v_chunks = model_inference_module.split_matrix(matrix=v_layer, ratios_list=ratios_list, dim=1)
-        v_chunks_bytes = socket_comm_module.pack_tensor(tensor=v_chunks)
-
+        
         q_per_token_all_heads_list = []
         k_per_token_all_heads_list = []
         v_per_token_all_heads_list = []
@@ -71,12 +68,20 @@ def inference_server(user_config: dict) -> None:
             # send embedding res
             layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm)
             response_embedding = server.send_data(target_addr, layer_embedding_norm_bytes)
-            if response_embedding == "Received":
-                response_q_per_token_all_heads_piece = server.send_data(target_addr, q_chunks_bytes)
+            if response_embedding == b"Received":
+                q_chunks_bytes = socket_comm_module.pack_tensor(tensor=q_chunks[i])
+                response_q_per_token_all_heads_piece_bytes = server.send_data(target_addr, q_chunks_bytes)
+                response_q_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_q_per_token_all_heads_piece_bytes)
                 q_per_token_all_heads_list.append(response_q_per_token_all_heads_piece)
-                response_k_per_token_all_heads_piece = server.send_data(target_addr, k_chunks_bytes)
+                
+                k_chunks_bytes = socket_comm_module.pack_tensor(tensor=k_chunks[i])
+                response_k_per_token_all_heads_piece_bytes = server.send_data(target_addr, k_chunks_bytes)
+                response_k_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_k_per_token_all_heads_piece_bytes)
                 k_per_token_all_heads_list.append(response_k_per_token_all_heads_piece)
-                response_v_per_token_all_heads_piece = server.send_data(target_addr, v_chunks_bytes)
+                
+                v_chunks_bytes = socket_comm_module.pack_tensor(tensor=v_chunks[i])
+                response_v_per_token_all_heads_piece_bytes = server.send_data(target_addr, v_chunks_bytes)
+                response_v_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_v_per_token_all_heads_piece_bytes)
                 v_per_token_all_heads_list.append(response_v_per_token_all_heads_piece)
 
         # cat the pieces together
