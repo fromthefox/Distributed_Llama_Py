@@ -10,6 +10,30 @@ import threading
 import time
 import torch
 
+def QKV_distribution(addrs_list:list, tar_index:int, server: socket_server.TCPServer, q_chunks:tuple, k_chunks:tuple, v_chunks:tuple) -> list:
+    QKV_res_list = []
+
+    tar_addr = addrs_list[tar_index]
+    layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm_bytes)
+    response_embedding = server.send_data(tar_addr, layer_embedding_norm_bytes)
+    if response_embedding == b"Received":
+        q_chunks_bytes = socket_comm_module.pack_tensor(tensor=q_chunks[tar_index])
+        response_q_per_token_all_heads_piece_bytes = server.send_data(tar_addr, q_chunks_bytes)
+        response_q_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_q_per_token_all_heads_piece_bytes)
+        QKV_res_list.append(response_q_per_token_all_heads_piece)
+        
+        k_chunks_bytes = socket_comm_module.pack_tensor(tensor=k_chunks[tar_index])
+        response_k_per_token_all_heads_piece_bytes = server.send_data(tar_addr, k_chunks_bytes)
+        response_k_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_k_per_token_all_heads_piece_bytes)
+        QKV_res_list.append(response_k_per_token_all_heads_piece)
+        
+        v_chunks_bytes = socket_comm_module.pack_tensor(tensor=v_chunks[tar_index])
+        response_v_per_token_all_heads_piece_bytes = server.send_data(tar_addr, v_chunks_bytes)
+        response_v_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_v_per_token_all_heads_piece_bytes)
+        QKV_res_list.append(response_v_per_token_all_heads_piece)
+    return QKV_res_list
+
+
 def inference_server(user_config: dict) -> None:
     model, tokenizer, config = init.load_file("model_path", "tokenizer_path", "config_path")
     server = socket_server.TCPServer(port = 9999)
@@ -56,33 +80,37 @@ def inference_server(user_config: dict) -> None:
         k_chunks = model_inference_module.split_matrix(matrix=k_layer, ratios_list=ratios_list, dim=1)
         v_chunks = model_inference_module.split_matrix(matrix=v_layer, ratios_list=ratios_list, dim=1)
         
+        results = [None] * len(addrs_list)
+        threads = []
+        for i in range(len(ratios_list)):
+            thread = threading.Thread(
+                target=lambda idx, r: r.__setitem__(idx, QKV_distribution(
+                    ratios_list,
+                    addrs_list,
+                    idx,
+                    server,
+                    q_chunks,
+                    k_chunks,
+                    v_chunks
+                )),
+                args=(i, results)
+            )
+            threads.append(thread)
+            thread.start()
+        
+        for thread in threads:
+            thread.join()
+        
         q_per_token_all_heads_list = []
         k_per_token_all_heads_list = []
         v_per_token_all_heads_list = []
 
-        # server send qkv matrix and embedding res to client and finish the calculation
-        for i in range(len(ratios_list)):
-            # 依次发送qkv
-            target_addr = addrs_list[i]
+        for res in results:
+            if res and len(res) == 3:  # 确保每个结果包含q/k/v三个元素
+                q_per_token_all_heads_list.append(res[0])
+                k_per_token_all_heads_list.append(res[1])
+                v_per_token_all_heads_list.append(res[2])
 
-            # send embedding res
-            layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm)
-            response_embedding = server.send_data(target_addr, layer_embedding_norm_bytes)
-            if response_embedding == b"Received":
-                q_chunks_bytes = socket_comm_module.pack_tensor(tensor=q_chunks[i])
-                response_q_per_token_all_heads_piece_bytes = server.send_data(target_addr, q_chunks_bytes)
-                response_q_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_q_per_token_all_heads_piece_bytes)
-                q_per_token_all_heads_list.append(response_q_per_token_all_heads_piece)
-                
-                k_chunks_bytes = socket_comm_module.pack_tensor(tensor=k_chunks[i])
-                response_k_per_token_all_heads_piece_bytes = server.send_data(target_addr, k_chunks_bytes)
-                response_k_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_k_per_token_all_heads_piece_bytes)
-                k_per_token_all_heads_list.append(response_k_per_token_all_heads_piece)
-                
-                v_chunks_bytes = socket_comm_module.pack_tensor(tensor=v_chunks[i])
-                response_v_per_token_all_heads_piece_bytes = server.send_data(target_addr, v_chunks_bytes)
-                response_v_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_v_per_token_all_heads_piece_bytes)
-                v_per_token_all_heads_list.append(response_v_per_token_all_heads_piece)
 
         # cat the pieces together
         q_per_token_all_heads = model_inference_module.concat_tensors(tensor_list=q_per_token_all_heads_list, dim=2)
