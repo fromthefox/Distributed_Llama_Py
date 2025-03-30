@@ -5,6 +5,7 @@ import torch
 import socket_server
 import socket_comm_module
 
+
 def input_embedding(input_text, tokenizer, config, model):
     tokens = [128000] + tokenizer.encode(input_text)
     tokens = torch.tensor(tokens)
@@ -90,3 +91,24 @@ def QKV_distribution(addrs_list:list, tar_index:int, server: socket_server.TCPSe
         QKV_res_list.append(response_v_per_token_all_heads_piece)
     
     return QKV_res_list
+
+def cat_res(results:list) -> list:
+    """
+    this function is used to cat the results from the multi-threading
+    """
+    q_per_token_all_heads_list = []
+    k_per_token_all_heads_list = []
+    v_per_token_all_heads_list = []
+
+    for res in results:
+        if res and len(res) == 3:  # 确保每个结果包含q/k/v三个元素
+            q_per_token_all_heads_list.append(res[0])
+            k_per_token_all_heads_list.append(res[1])
+            v_per_token_all_heads_list.append(res[2])
+
+    # cat the pieces together
+    q_per_token_all_heads = concat_tensors(tensor_list=q_per_token_all_heads_list, dim=2)
+    k_per_token_all_heads = concat_tensors(tensor_list=k_per_token_all_heads_list, dim=2)
+    v_per_token_all_heads = concat_tensors(tensor_list=v_per_token_all_heads_list, dim=2)
+    
+    return q_per_token_all_heads, k_per_token_all_heads, v_per_token_all_heads

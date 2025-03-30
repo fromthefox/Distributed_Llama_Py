@@ -3,6 +3,8 @@ this file is used to finish the inference task
 """
 
 import model_inference_module
+from model_inference_module import QKV_distribution
+import threading
 
 def inference_server(model, tokenizer, config, server, input_text, allocation_list, user_config):
     """
@@ -35,4 +37,27 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
 
         # multi-threading to distribute the qkv matrix
         results = [None] * len(addrs_list)
+        threads = []
+        for i in range(len(allocation_list)):
+            thread = threading.Thread(
+                target=lambda idx, r: r.__setitem__(idx, QKV_distribution(
+                    allocation_list,
+                    addrs_list,
+                    idx,
+                    server,
+                    q_chunks,
+                    k_chunks,
+                    v_chunks
+                )),
+                args=(i, results)
+            )
+            threads.append(thread)
+            thread.start()
+        
+        # wait for all threads to finish
+        for thread in threads:
+            thread.join()
+
+        # cat the multi-nodes results
+        
         
