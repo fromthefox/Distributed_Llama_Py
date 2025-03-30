@@ -21,30 +21,35 @@ def concat_tensors(tensor_list: list, dim: int) -> torch.Tensor:
     
     return torch.cat(tensor_list, dim=dim)
 
-def split_matrix(matrix, ratios_list, dim):
+def split_matrix(matrix: torch.Tensor, ratio_list: list, dim: int) -> tuple:
     """
-    Split the matrix along specified dimension and return the chunks.
-    matrix: raw matrix, tensor, n dims
-    ratios_list: the split ratio of matrix, list
-    dim: the dimension to split (0-based index)
-    """
-    pieces_num = sum(ratios_list)
-    shape_dim = matrix.shape[dim]
-    
-    if shape_dim % pieces_num != 0:
-        raise ValueError(f"Dimension {dim} ({shape_dim}) not divisible by {pieces_num}")
-    
-    piece_size = shape_dim // pieces_num
-    split_tuple = tuple(i * piece_size for i in ratios_list)
-    
-    # Validate split_tuple
-    if sum(split_tuple) != shape_dim:
-        raise ValueError(f"split_tuple {split_tuple} sum does not match shape dimension {shape_dim}")
-    
-    chunks = torch.split(tensor=matrix, split_size_or_sections=split_tuple, dim=dim)
-    
+    Slices a 3D tensor in a given dimension according to a given list of scales
 
-    return chunks
+    parameters:
+        matrix: input 3D tensor (X*Y*Z).
+        ratio_list: list of sliced dimensions, the sum of the elements must be equal to the length of the target dimension
+        dim: the dimension to slice (0,1,2)
+
+    Returns:
+        The tuple of the split tensor
+    """
+    # input validation
+    if matrix.dim() != 3:
+        raise ValueError(f"The input tensor must be three-dimensional with the current dimension of{matrix.dim()}")
+    
+    if dim not in {0, 1, 2}:
+        raise ValueError(f"The dim parameter can only be 0/1/2, which is currently{dim}")
+    
+    if sum(ratio_list) != matrix.size(dim):
+        required = matrix.size(dim)
+        actual = sum(ratio_list)
+        raise ValueError(f"The sum of the split dimensions must equal the dimension{dim}（{required}≠{actual}）")
+    
+    if any(not isinstance(s, int) or s <= 0 for s in ratio_list):
+        raise ValueError("Split sizes must all be positive integers")
+    
+    # Performing a slice operation
+    return torch.split(matrix, ratio_list, dim=dim)
 
 def get_freqs_cis(config, tokens_length):
     """

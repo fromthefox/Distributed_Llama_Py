@@ -20,13 +20,12 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
         layer_embedding_norm = model_inference_module.rms_norm(final_embedding, model[f"layers.{layer}.attention_norm.weight"])
 
         # load model weights
-        q_layer = model[f"layers.{layer}.attention.wq.weight"]
-        q_layer = q_layer.view(config.n_heads, q_layer.shape[0] // config.n_heads, config.dim)
-        k_layer = model[f"layers.{layer}.attention.wk.weight"]
-        k_layer = k_layer.view(config.n_kv_heads, k_layer.shape[0] // config.n_kv_heads, config.dim)
-        v_layer = model[f"layers.{layer}.attention.wv.weight"]
-        v_layer = v_layer.view(config.n_kv_heads, v_layer.shape[0] // config.n_kv_heads, config.dim)
-        w_layer = model[f"layers.{layer}.attention.wo.weight"]
+        q_layer_matrix = model[f"layers.{layer}.attention.wq.weight"]
+        q_layer_matrix = q_layer_matrix.view(config.n_heads, q_layer.shape[0] // config.n_heads, config.dim)
+        k_layer_matrix = model[f"layers.{layer}.attention.wk.weight"]
+        k_layer_matrix = k_layer_matrix.view(config.n_kv_heads, k_layer.shape[0] // config.n_kv_heads, config.dim)
+        v_layer_matrix = model[f"layers.{layer}.attention.wv.weight"]
+        v_layer_matrix = v_layer_matrix.view(config.n_kv_heads, v_layer.shape[0] // config.n_kv_heads, config.dim)
+        w_layer_matrix = model[f"layers.{layer}.attention.wo.weight"]
 
         # split qkv matrix
-        
