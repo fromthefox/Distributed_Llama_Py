@@ -33,4 +33,6 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
         k_chunks = model_inference_module.split_matrix(matrix=k_layer_matrix, ratio_list=allocation_list, dim=1)
         v_chunks = model_inference_module.split_matrix(matrix=v_layer_matrix, ratio_list=allocation_list, dim=1)
 
+        # multi-threading to distribute the qkv matrix
+        results = [None] * len(addrs_list)
         

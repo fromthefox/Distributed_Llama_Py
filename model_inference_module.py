@@ -2,6 +2,8 @@
 functions of llama-3
 """
 import torch
+import socket_server
+import socket_comm_module
 
 def input_embedding(input_text, tokenizer, config, model):
     tokens = [128000] + tokenizer.encode(input_text)
@@ -61,3 +63,30 @@ def get_freqs_cis(config, tokens_length):
     freqs_cis = torch.polar(torch.ones_like(freqs_for_each_token), freqs_for_each_token)
     
     return freqs_cis
+
+def QKV_distribution(addrs_list:list, tar_index:int, server: socket_server.TCPServer, q_chunks:tuple, k_chunks:tuple, v_chunks:tuple) -> list:
+    QKV_res_list = []
+
+    tar_addr = addrs_list[tar_index]
+
+    # send the layer_embedding_norm_bytes to the server
+    layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm_bytes)
+    response_embedding = server.send_data(tar_addr, layer_embedding_norm_bytes)
+
+    if response_embedding == b"Received": # means the client received the embedding res
+        q_chunks_bytes = socket_comm_module.pack_tensor(tensor=q_chunks[tar_index])
+        response_q_per_token_all_heads_piece_bytes = server.send_data(tar_addr, q_chunks_bytes)
+        response_q_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_q_per_token_all_heads_piece_bytes)
+        QKV_res_list.append(response_q_per_token_all_heads_piece)
+        
+        k_chunks_bytes = socket_comm_module.pack_tensor(tensor=k_chunks[tar_index])
+        response_k_per_token_all_heads_piece_bytes = server.send_data(tar_addr, k_chunks_bytes)
+        response_k_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_k_per_token_all_heads_piece_bytes)
+        QKV_res_list.append(response_k_per_token_all_heads_piece)
+        
+        v_chunks_bytes = socket_comm_module.pack_tensor(tensor=v_chunks[tar_index])
+        response_v_per_token_all_heads_piece_bytes = server.send_data(tar_addr, v_chunks_bytes)
+        response_v_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_v_per_token_all_heads_piece_bytes)
+        QKV_res_list.append(response_v_per_token_all_heads_piece)
+    
+    return QKV_res_list
