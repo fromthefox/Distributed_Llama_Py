@@ -34,4 +34,3 @@ def load_file(model_path, tokenizer_path, config_path):
         config = json.load(f)
 
     return model, tokenizer, config
-
