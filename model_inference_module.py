@@ -45,3 +45,14 @@ def split_matrix(matrix, ratios_list, dim):
     
 
     return chunks
+
+def get_freqs_cis(config, tokens_length):
+    """
+    Get the freqs_cis tensor for the model.
+    """
+    zero_to_one_split_into_64_parts = torch.tensor(range(64)) / 64
+    freqs = 1.0 / (config.rope_theta ** zero_to_one_split_into_64_parts)
+    freqs_for_each_token = torch.outer(torch.arange(tokens_length), freqs)
+    freqs_cis = torch.polar(torch.ones_like(freqs_for_each_token), freqs_for_each_token)
+    
+    return freqs_cis

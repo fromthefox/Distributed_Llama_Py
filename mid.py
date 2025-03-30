@@ -49,6 +49,7 @@ def inference_server(user_config: dict) -> None:
     freqs = 1.0 / (config.rope_theta ** zero_to_one_split_into_64_parts)
     freqs_for_each_token = torch.outer(torch.arange(tokens_length), freqs)
     freqs_cis = torch.polar(torch.ones_like(freqs_for_each_token), freqs_for_each_token)
+    
     ratios_list = user_config["ratios"]
     addrs_list = user_config["addrs"]
 
