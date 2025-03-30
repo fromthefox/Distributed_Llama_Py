@@ -10,6 +10,14 @@ import torch
 def inference_server(model, tokenizer, config, server, input_text, allocation_list, user_config):
     """
     tips: config is the config file of the model, and the user_config is the config file of the topo.
+    :param model: model
+    :param tokenizer: tokenizer
+    :param config: model config dict
+    :param server: server object
+    :param input_text: input text, str
+    :param allocation_list: ratios of each node
+    :param user_config: user config dict, inclding ip' addrs, ports, and so on
+    :return: next text predicted by LLM
     """
     token_embeddings_unnormalized, tokens_length = model_inference_module.input_embedding(input_text=input_text, tokenizer=tokenizer, config=config, model=model)
     freqs_cis = model_inference_module.get_freqs_cis(config, tokens_length)
@@ -24,11 +32,11 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
 
         # load model weights
         q_layer_matrix = model[f"layers.{layer}.attention.wq.weight"]
-        q_layer_matrix = q_layer_matrix.view(config.n_heads, q_layer.shape[0] // config.n_heads, config.dim)
+        q_layer_matrix = q_layer_matrix.view(config.n_heads, q_layer_matrix.shape[0] // config.n_heads, config.dim)
         k_layer_matrix = model[f"layers.{layer}.attention.wk.weight"]
-        k_layer_matrix = k_layer_matrix.view(config.n_kv_heads, k_layer.shape[0] // config.n_kv_heads, config.dim)
+        k_layer_matrix = k_layer_matrix.view(config.n_kv_heads, k_layer_matrix.shape[0] // config.n_kv_heads, config.dim)
         v_layer_matrix = model[f"layers.{layer}.attention.wv.weight"]
-        v_layer_matrix = v_layer_matrix.view(config.n_kv_heads, v_layer.shape[0] // config.n_kv_heads, config.dim)
+        v_layer_matrix = v_layer_matrix.view(config.n_kv_heads, v_layer_matrix.shape[0] // config.n_kv_heads, config.dim)
 
         # split qkv matrix, x_chunks' type is tuple
         q_chunks = model_inference_module.split_matrix(matrix=q_layer_matrix, ratio_list=allocation_list, dim=1)
@@ -98,3 +106,14 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
         w3 = model[f"layers.{layer}.feed_forward.w3.weight"]
         output_after_feedforward = torch.matmul(torch.functional.F.silu(torch.matmul(embedding_after_edit_normalized, w1.T)) * torch.matmul(embedding_after_edit_normalized, w3.T), w2.T)
         final_embedding = embedding_after_edit+output_after_feedforward
+    
+    # final_norm
+    final_embedding = model_inference_module.rms_norm(final_embedding, model["norm.weight"])
+
+    logits = torch.matmul(final_embedding[-1], model["output.weight"].T)
+
+    next_token = torch.argmax(logits, dim=-1)
+
+    next_text = tokenizer.decode([next_token.item()])
+
+    return next_text
