@@ -33,7 +33,7 @@ def split_matrix(matrix: torch.Tensor, ratio_list: list, dim: int) -> tuple:
     Returns:
         The tuple of the split tensor
     """
-    # input validation
+    # 输入验证
     if matrix.dim() != 3:
         raise ValueError(f"The input tensor must be three-dimensional with the current dimension of{matrix.dim()}")
     
@@ -48,7 +48,7 @@ def split_matrix(matrix: torch.Tensor, ratio_list: list, dim: int) -> tuple:
     if any(not isinstance(s, int) or s <= 0 for s in ratio_list):
         raise ValueError("Split sizes must all be positive integers")
     
-    # Performing a slice operation
+    # 执行切分操作
     return torch.split(matrix, ratio_list, dim=dim)
 
 def get_freqs_cis(config, tokens_length):

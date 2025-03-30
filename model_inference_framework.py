@@ -28,4 +28,9 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
         v_layer_matrix = v_layer_matrix.view(config.n_kv_heads, v_layer.shape[0] // config.n_kv_heads, config.dim)
         w_layer_matrix = model[f"layers.{layer}.attention.wo.weight"]
 
-        # split qkv matrix
+        # split qkv matrix, x_chunks' type is tuple
+        q_chunks = model_inference_module.split_matrix(matrix=q_layer_matrix, ratio_list=allocation_list, dim=1)
+        k_chunks = model_inference_module.split_matrix(matrix=k_layer_matrix, ratio_list=allocation_list, dim=1)
+        v_chunks = model_inference_module.split_matrix(matrix=v_layer_matrix, ratio_list=allocation_list, dim=1)
+
+        
