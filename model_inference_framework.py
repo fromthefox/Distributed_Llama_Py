@@ -6,20 +6,21 @@ import model_inference_module
 from model_inference_module import QKV_distribution
 import threading
 import torch
+from model_inference_module import inference_server
 
-def generation_loop(initial_input, max_tokens, model, tokenizer, config, server, allocation_list, user_config):
+def generation_loop(initial_input, max_tokens_length, model, tokenizer, config, server, allocation_list, user_config):
     """
-    自动续写的生成循环
-    :param initial_input: 初始输入文本
-    :param max_tokens: 最大生成token数（从user_config读取）
-    :returns: 完整生成的文本
+    Generation loop for autocontinuation
+    :param initial_input: initial input text
+    :param max_tokens_length: maximum number of tokens to generate (read from user_config)
+    :returns: the full generated text
     """
     current_input = initial_input
     generated_tokens = 0
     full_output = ""
 
     while True:
-        # 执行单步推理
+        # Perform single-step reasoning
         next_text = inference_server(
             model=model,
             tokenizer=tokenizer,
@@ -30,15 +31,15 @@ def generation_loop(initial_input, max_tokens, model, tokenizer, config, server,
             user_config=user_config
         )
         
-        # 更新状态
+        # Update Status
         full_output += next_text
         generated_tokens += 1
-        current_input += next_text  # 拼接新生成的文本
+        current_input += next_text  # Splicing the newly generated text
         
-        # 停止条件检测
+        # Stop condition detection
         stop_conditions = [
-            generated_tokens >= max_tokens,          # 超过最大长度
-            next_text in ["</s>", "<|endoftext|>"]   # 常见结束符（根据实际tokenizer调整）
+            generated_tokens >= max_tokens_length,          # Exceeds maximum length
+            next_text in ["</s>", "<|endoftext|>"]   # Common terminators (adjusted to the actual tokenizer)
         ]
         
         if any(stop_conditions):
