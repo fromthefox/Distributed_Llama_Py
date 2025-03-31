@@ -1,7 +1,8 @@
 import socket
 import threading
 from socket_comm_module import send_message, receive_message
-
+from socket_comm_module import unpack_tensor, pack_tensor
+import torch
 
 class TCPClient:
     """
@@ -31,6 +32,12 @@ class TCPClient:
                 
                 data_tensor = unpack_tensor(data)
                 if len(data_tensor.shape) == 2:
+                    """
+                    here we can also pack some str with the data to differ the tensor type from input_embedding and matrix
+                    PLAN A: add a flag to the tensor to indicate its type
+                    PLAN B: use a dictionary to pack the tensor and the type
+                    """
+                    # if the tensor is 2D, it is the input embedding
                     input_embedding = data_tensor
                     print('Received')
                     response = b'Received'
@@ -38,6 +45,7 @@ class TCPClient:
                     matrix = data_tensor
                     matrix_res = torch.empty(matrix.shape[0], input_embedding.shape[0], matrix.shape[1])
                     if input_embedding == None:
+                        # we must ensure that the input_embedding is not None
                         raise ValueError("input_embedding is None!!")
                     else:
                         for i in range(matrix.shape[0]):
@@ -49,5 +57,3 @@ class TCPClient:
                 break
 
         self.sock.close()
-
-
