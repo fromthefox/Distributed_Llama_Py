@@ -9,7 +9,7 @@ import threading
 import model_inference_framework
 
 
-def infenerce_framework(allocation_list:list, model_path:str, tokenizer_path:str, config_path:str, user_config_path:str) -> None:
+def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_path:str, config_path:str, user_config_path:str) -> None:
     """
     the whole framework of the project.
     :parma allocation_list: list, like [25, 48, 55] for unsplitted-dim == 128
@@ -48,5 +48,5 @@ def infenerce_framework(allocation_list:list, model_path:str, tokenizer_path:str
         allocation_list=allocation_list,
         user_config=user_config_dict
     )
-    
+
     
