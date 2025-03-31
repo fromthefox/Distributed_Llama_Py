@@ -8,6 +8,8 @@ from tiktoken.load import load_tiktoken_bpe
 import torch
 import json
 import matplotlib.pyplot as plt
+import configparser
+import ast
 
 def load_model(model_path, tokenizer_path, config_path):
     model = torch.load(model_path)
@@ -35,5 +37,22 @@ def load_model(model_path, tokenizer_path, config_path):
 
     return model, tokenizer, config
 
-def load_user_config(user_config_path: str):
+def parse_ini_file(file_path):
+    """
+    Parses INI files containing special formats and returns dictionaries
+    """
+    config = configparser.ConfigParser()
+    config.read(file_path)
     
+    result_dict = {}
+    for section in config.sections():
+        result_dict[section] = {}
+        for key in config[section]:
+            # 安全解析字面量表达式（列表/字符串/数字）
+            try:
+                value = ast.literal_eval(config[section][key])
+            except (ValueError, SyntaxError):
+                value = config[section][key]
+            result_dict[section][key] = value
+    
+    return result_dict
