@@ -4,6 +4,7 @@ functions of llama-3
 import torch
 import socket_server
 import socket_comm_module
+import threading
 
 
 def input_embedding(input_text, tokenizer, config, model):
@@ -65,13 +66,13 @@ def get_freqs_cis(config, tokens_length):
     
     return freqs_cis
 
-def QKV_distribution(addrs_list:list, tar_index:int, server: socket_server.TCPServer, q_chunks:tuple, k_chunks:tuple, v_chunks:tuple) -> list:
+def QKV_distribution(addrs_list:list, tar_index:int, server: socket_server.TCPServer, q_chunks:tuple, k_chunks:tuple, v_chunks:tuple, layer_embedding_norm:torch.Tensor) -> list:
     QKV_res_list = []
 
     tar_addr = addrs_list[tar_index]
 
     # send the layer_embedding_norm_bytes to the server
-    layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm_bytes)
+    layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm)
     response_embedding = server.send_data(tar_addr, layer_embedding_norm_bytes)
 
     if response_embedding == b"Received": # means the client received the embedding res
@@ -125,8 +126,8 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
     :param user_config: user config dict, inclding ip' addrs, ports, and so on
     :return: next text predicted by LLM
     """
-    token_embeddings_unnormalized, tokens_length = model_inference_module.input_embedding(input_text=input_text, tokenizer=tokenizer, config=config, model=model)
-    freqs_cis = model_inference_module.get_freqs_cis(config, tokens_length)
+    token_embeddings_unnormalized, tokens_length = input_embedding(input_text=input_text, tokenizer=tokenizer, config=config, model=model)
+    freqs_cis = get_freqs_cis(config, tokens_length)
 
     # how to get addrs_list?
     addrs_list = user_config["addrs"]
@@ -134,7 +135,7 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
     final_embedding = token_embeddings_unnormalized
     for layer in range(config.n_layers):
         qkv_attention_store = []
-        layer_embedding_norm = model_inference_module.rms_norm(final_embedding, model[f"layers.{layer}.attention_norm.weight"])
+        layer_embedding_norm = rms_norm(final_embedding, model[f"layers.{layer}.attention_norm.weight"])
 
         # load model weights
         q_layer_matrix = model[f"layers.{layer}.attention.wq.weight"]
@@ -145,9 +146,9 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
         v_layer_matrix = v_layer_matrix.view(config.n_kv_heads, v_layer_matrix.shape[0] // config.n_kv_heads, config.dim)
 
         # split qkv matrix, x_chunks' type is tuple
-        q_chunks = model_inference_module.split_matrix(matrix=q_layer_matrix, ratio_list=allocation_list, dim=1)
-        k_chunks = model_inference_module.split_matrix(matrix=k_layer_matrix, ratio_list=allocation_list, dim=1)
-        v_chunks = model_inference_module.split_matrix(matrix=v_layer_matrix, ratio_list=allocation_list, dim=1)
+        q_chunks = split_matrix(matrix=q_layer_matrix, ratio_list=allocation_list, dim=1)
+        k_chunks = split_matrix(matrix=k_layer_matrix, ratio_list=allocation_list, dim=1)
+        v_chunks = split_matrix(matrix=v_layer_matrix, ratio_list=allocation_list, dim=1)
 
         # multi-threading to distribute the qkv matrix
         results = [None] * len(addrs_list)
@@ -161,7 +162,8 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
                     server,
                     q_chunks,
                     k_chunks,
-                    v_chunks
+                    v_chunks,
+                    layer_embedding_norm
                 )),
                 args=(i, results)
             )
@@ -173,7 +175,7 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
             thread.join()
 
         # cat the multi-nodes results
-        q_per_token_all_heads, k_per_token_all_heads, v_per_token_all_heads = model_inference_module.cat_res(results=results)
+        q_per_token_all_heads, k_per_token_all_heads, v_per_token_all_heads = cat_res(results=results)
 
         # multi-heads attention process
         for head in range(config.n_heads):
@@ -206,7 +208,7 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
         embedding_delta = torch.matmul(stacked_qkv_attention, w_layer_matrix.T)
 
         embedding_after_edit = final_embedding + embedding_delta
-        embedding_after_edit_normalized = model_inference_module.rms_norm(embedding_after_edit, model[f"layers.{layer}.ffn_norm.weight"])
+        embedding_after_edit_normalized = rms_norm(embedding_after_edit, model[f"layers.{layer}.ffn_norm.weight"])
         w1 = model[f"layers.{layer}.feed_forward.w1.weight"]
         w2 = model[f"layers.{layer}.feed_forward.w2.weight"]
         w3 = model[f"layers.{layer}.feed_forward.w3.weight"]
@@ -214,7 +216,7 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
         final_embedding = embedding_after_edit+output_after_feedforward
     
     # final_norm
-    final_embedding = model_inference_module.rms_norm(final_embedding, model["norm.weight"])
+    final_embedding = rms_norm(final_embedding, model["norm.weight"])
 
     logits = torch.matmul(final_embedding[-1], model["output.weight"].T)
 

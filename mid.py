@@ -10,11 +10,11 @@ import threading
 import time
 import torch
 
-def QKV_distribution(addrs_list:list, tar_index:int, server: socket_server.TCPServer, q_chunks:tuple, k_chunks:tuple, v_chunks:tuple) -> list:
+def QKV_distribution(addrs_list:list, tar_index:int, server: socket_server.TCPServer, q_chunks:tuple, k_chunks:tuple, v_chunks:tuple, layer_embedding_norm:torch.Tensor) -> list:
     QKV_res_list = []
 
     tar_addr = addrs_list[tar_index]
-    layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm_bytes)
+    layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm)
     response_embedding = server.send_data(tar_addr, layer_embedding_norm_bytes)
     if response_embedding == b"Received":
         q_chunks_bytes = socket_comm_module.pack_tensor(tensor=q_chunks[tar_index])
