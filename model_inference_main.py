@@ -8,7 +8,7 @@ import socket_server
 import threading
 
 
-def infenerce_framework(allocation_list:list, model_path:str, tokenizer_path:str, config_path:str, user_config:str) -> None:
+def infenerce_framework(allocation_list:list, model_path:str, tokenizer_path:str, config_path:str, user_config_path:str) -> None:
     """
     the whole framework of the project.
     :parma allocation_list: list, like [25, 48, 55] for unsplitted-dim == 128
@@ -18,7 +18,8 @@ def infenerce_framework(allocation_list:list, model_path:str, tokenizer_path:str
 
     # 1. load model, tokenizer, config
     model, tokenizer, config = init.load_model("model_path", "tokenizer_path", "config_path")
-    user_config = 
+    user_config_dict = init.load_user_config(user_config_path)
+
 
     # 2. prepare the server
     
@@ -31,4 +32,9 @@ def infenerce_framework(allocation_list:list, model_path:str, tokenizer_path:str
 
     # 3. start the inference
 
-    # 3.1. get the input text
+    # 3.1. get the input text and max token
+    input_text = user_config_dict["user_config"]["input_text"]
+    max_token_length = user_config_dict["user_config"]["max_token_length"]
+
+    # 3.2. start inference
+    
