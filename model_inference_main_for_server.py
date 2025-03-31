@@ -49,4 +49,4 @@ def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_pa
         user_config=user_config_dict
     )
 
-    
+    return full_output
