@@ -6,6 +6,7 @@ here we accept the param from Auto-Deployment Proj.
 import init
 import socket_server
 import threading
+import model_inference_framework
 
 
 def infenerce_framework(allocation_list:list, model_path:str, tokenizer_path:str, config_path:str, user_config_path:str) -> None:
@@ -37,5 +38,15 @@ def infenerce_framework(allocation_list:list, model_path:str, tokenizer_path:str
     max_token_length = user_config_dict["user_config"]["max_token_length"]
 
     # 3.2. start inference
+    full_output = model_inference_framework.generation_loop(
+        initial_input=input_text,
+        max_tokens_length=max_token_length,
+        model=model,
+        tokenizer=tokenizer,
+        config=config,
+        server=server,
+        allocation_list=allocation_list,
+        user_config=user_config_dict
+    )
     
     
