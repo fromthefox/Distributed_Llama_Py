@@ -10,7 +10,10 @@ class TCPClient:
     """
     def __init__(self, host: str = '192.168.1.104', port: int = 44444):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, True)
+        self.sock.ioctl(
+            socket.SIO_KEEPALIVE_VALS, (1, 60*1000, 30*1000)  # Enable keepalive
+        )
         # Bind to a specific address and port (optional), make sure to use a different port than the server
         self.sock.bind(("192.168.1.105", 34567))
 

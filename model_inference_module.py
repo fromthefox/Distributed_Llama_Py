@@ -157,7 +157,6 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
         for i in range(len(allocation_list)):
             thread = threading.Thread(
                 target=lambda idx, r: r.__setitem__(idx, QKV_distribution(
-                    allocation_list,
                     addrs_list,
                     idx,
                     server,

@@ -81,6 +81,10 @@ class TCPServer:
         while self.running:
             try:
                 client_sock, client_addr = self.server_socket.accept()
+                client_sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, True)
+                client_sock.ioctl(
+                    socket.SIO_KEEPALIVE_VALS, (1, 60*1000, 30*1000)  # Enable keepalive
+                )
                 print(f"New connection from {client_addr}")
                 
                 self.connection_manager.add_connection(client_sock, client_addr)
