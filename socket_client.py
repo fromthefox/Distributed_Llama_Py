@@ -12,7 +12,7 @@ class TCPClient:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
         # Bind to a specific address and port (optional), make sure to use a different port than the server
-        self.sock.bind(("192.168.1.104", 55555))
+        self.sock.bind((str, port))
 
         # Connect to the server
         self.sock.connect((host, port))
