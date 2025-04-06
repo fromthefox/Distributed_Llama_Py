@@ -50,3 +50,11 @@ def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_pa
     )
 
     return full_output
+
+infenerce_main_for_server(
+    allocation_list=[96, 32],
+    model_path="model_path",
+    tokenizer_path="tokenizer_path",
+    config_path="config_path",
+    user_config_path="user_config_path"
+)
