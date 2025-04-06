@@ -70,6 +70,7 @@ def QKV_distribution(addrs_list:list, tar_index:int, server: socket_server.TCPSe
     QKV_res_list = []
 
     tar_addr = addrs_list[tar_index]
+    print(tar_addr)
 
     # send the layer_embedding_norm_bytes to the server
     layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm)
@@ -127,11 +128,15 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
     :return: next text predicted by LLM
     """
 
+    # conn = server.connection_manager.get_connection(address)
+    
+
     token_embeddings_unnormalized, tokens_length = input_embedding(input_text=input_text, tokenizer=tokenizer, config=config, model=model)
     freqs_cis = get_freqs_cis(config, tokens_length)
 
     # how to get addrs_list?
     addrs_list = user_config["network_config"]["addrs_list"]
+    conn = server.connection_manager.get_connection(addrs_list[0])
 
     final_embedding = token_embeddings_unnormalized
     for layer in range(config["n_layers"]):
