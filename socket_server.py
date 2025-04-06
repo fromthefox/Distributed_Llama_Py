@@ -65,7 +65,7 @@ class ConnectionManager:
 
 class TCPServer:
     """TCP服务端主类"""
-    def __init__(self, host: str = '0.0.0.0', port: int = 9999):
+    def __init__(self, host: str = '0.0.0.0', port: int = 44444):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind((host, port))
@@ -75,7 +75,7 @@ class TCPServer:
     def start(self):
         """启动服务监听"""
         self.running = True
-        self.server_socket.listen(5)
+        self.server_socket.listen(1)
         print(f"Server listening on {self.server_socket.getsockname()}")
 
         while self.running:

@@ -53,8 +53,8 @@ def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_pa
 
 infenerce_main_for_server(
     allocation_list=[96, 32],
-    model_path="model_path",
-    tokenizer_path="tokenizer_path",
-    config_path="config_path",
-    user_config_path="user_config_path"
+    model_path=r"C:\Users\yhbia\Desktop\边彦晖\Proj\Meta_llama\Meta-Llama-3-8B\original\consolidated.00.pth",
+    tokenizer_path=r"C:\Users\yhbia\Desktop\边彦晖\Proj\Meta_llama\Meta-Llama-3-8B\original\tokenizer.model",
+    config_path=r"C:\Users\yhbia\Desktop\边彦晖\Proj\Meta_llama\Meta-Llama-3-8B\original\params.json",
+    user_config_path=r"C:\Users\yhbia\Desktop\学校\25.6.30-边彦晖-毕业设计\Distributed_Llama_Py\user_config.ini"
 )
