@@ -11,13 +11,13 @@ def input_embedding(input_text, tokenizer, config, model):
     tokens = [128000] + tokenizer.encode(input_text)
     tokens = torch.tensor(tokens)
     tokens_length = len(tokens)
-    embedding_layer = torch.nn.Embedding(config.vocab_size, config.dim)
+    embedding_layer = torch.nn.Embedding(config["vocab_size"], config["dim"])
     embedding_layer.weight.data.copy_(model["tok_embeddings.weight"])
     token_embeddings_unnormalized = embedding_layer(tokens).to(torch.bfloat16)
     return token_embeddings_unnormalized, tokens_length
 
 def rms_norm(tensor, norm_weights, config):
-    return (tensor * torch.rsqrt(tensor.pow(2).mean(-1, keepdim=True) + config.norm_eps)) * norm_weights
+    return (tensor * torch.rsqrt(tensor.pow(2).mean(-1, keepdim=True) + config["norm_eps"])) * norm_weights
 
 def concat_tensors(tensor_list: list, dim: int) -> torch.Tensor:
     if not tensor_list:
@@ -60,7 +60,7 @@ def get_freqs_cis(config, tokens_length):
     Get the freqs_cis tensor for the model.
     """
     zero_to_one_split_into_64_parts = torch.tensor(range(64)) / 64
-    freqs = 1.0 / (config.rope_theta ** zero_to_one_split_into_64_parts)
+    freqs = 1.0 / (config["rope_theta"] ** zero_to_one_split_into_64_parts)
     freqs_for_each_token = torch.outer(torch.arange(tokens_length), freqs)
     freqs_cis = torch.polar(torch.ones_like(freqs_for_each_token), freqs_for_each_token)
     
@@ -126,6 +126,7 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
     :param user_config: user config dict, inclding ip' addrs, ports, and so on
     :return: next text predicted by LLM
     """
+
     token_embeddings_unnormalized, tokens_length = input_embedding(input_text=input_text, tokenizer=tokenizer, config=config, model=model)
     freqs_cis = get_freqs_cis(config, tokens_length)
 
@@ -133,17 +134,17 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
     addrs_list = user_config["addrs"]
 
     final_embedding = token_embeddings_unnormalized
-    for layer in range(config.n_layers):
+    for layer in range(config["n_layers"]):
         qkv_attention_store = []
         layer_embedding_norm = rms_norm(final_embedding, model[f"layers.{layer}.attention_norm.weight"])
 
         # load model weights
         q_layer_matrix = model[f"layers.{layer}.attention.wq.weight"]
-        q_layer_matrix = q_layer_matrix.view(config.n_heads, q_layer_matrix.shape[0] // config.n_heads, config.dim)
+        q_layer_matrix = q_layer_matrix.view(config["n_heads"], q_layer_matrix.shape[0] // config["n_heads"], config["dim"])
         k_layer_matrix = model[f"layers.{layer}.attention.wk.weight"]
-        k_layer_matrix = k_layer_matrix.view(config.n_kv_heads, k_layer_matrix.shape[0] // config.n_kv_heads, config.dim)
+        k_layer_matrix = k_layer_matrix.view(config["n_kv_heads"], k_layer_matrix.shape[0] // config["n_kv_heads"], config["dim"])
         v_layer_matrix = model[f"layers.{layer}.attention.wv.weight"]
-        v_layer_matrix = v_layer_matrix.view(config.n_kv_heads, v_layer_matrix.shape[0] // config.n_kv_heads, config.dim)
+        v_layer_matrix = v_layer_matrix.view(config["n_kv_heads"], v_layer_matrix.shape[0] // config["n_kv_heads"], config["dim"])
 
         # split qkv matrix, x_chunks' type is tuple
         q_chunks = split_matrix(matrix=q_layer_matrix, ratio_list=allocation_list, dim=1)
@@ -178,7 +179,7 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
         q_per_token_all_heads, k_per_token_all_heads, v_per_token_all_heads = cat_res(results=results)
 
         # multi-heads attention process
-        for head in range(config.n_heads):
+        for head in range(config["n_heads"]):
             q_per_token = q_per_token_all_heads[0]
             k_per_token = k_per_token_all_heads[head//4]
             v_per_token = v_per_token_all_heads[head//4]
