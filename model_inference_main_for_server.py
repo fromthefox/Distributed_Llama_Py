@@ -17,19 +17,18 @@ def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_pa
     :return: None, just do the inference
     """
 
-    # 1. load model, tokenizer, config
-    model, tokenizer, config = init.load_model("model_path", "tokenizer_path", "config_path")
-    user_config_dict = init.load_user_config(user_config_path)
-
-
-    # 2. prepare the server
+    # 1.
     
-    # 2.1. init the server
-    server = socket_server.TCPServer(port=9999)
+    # 1.1. init the server
+    server = socket_server.TCPServer(port=44444)
 
-    # 2.2 start listening
+    # 1.2 start listening
     server_thread = threading.Thread(target=server.start)
     server_thread.start()
+
+    # 2. load model, tokenizer, config
+    model, tokenizer, config = init.load_model(model_path, tokenizer_path, config_path)
+    user_config_dict = init.parse_ini_file(user_config_path)
 
     # 3. start the inference
 
