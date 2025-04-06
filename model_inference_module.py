@@ -131,12 +131,12 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
     freqs_cis = get_freqs_cis(config, tokens_length)
 
     # how to get addrs_list?
-    addrs_list = user_config["addrs"]
+    addrs_list = user_config["network_config"]["addrs_list"]
 
     final_embedding = token_embeddings_unnormalized
     for layer in range(config["n_layers"]):
         qkv_attention_store = []
-        layer_embedding_norm = rms_norm(final_embedding, model[f"layers.{layer}.attention_norm.weight"])
+        layer_embedding_norm = rms_norm(final_embedding, model[f"layers.{layer}.attention_norm.weight"], config)
 
         # load model weights
         q_layer_matrix = model[f"layers.{layer}.attention.wq.weight"]
@@ -209,7 +209,7 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
         embedding_delta = torch.matmul(stacked_qkv_attention, w_layer_matrix.T)
 
         embedding_after_edit = final_embedding + embedding_delta
-        embedding_after_edit_normalized = rms_norm(embedding_after_edit, model[f"layers.{layer}.ffn_norm.weight"])
+        embedding_after_edit_normalized = rms_norm(embedding_after_edit, model[f"layers.{layer}.ffn_norm.weight"], config)
         w1 = model[f"layers.{layer}.feed_forward.w1.weight"]
         w2 = model[f"layers.{layer}.feed_forward.w2.weight"]
         w3 = model[f"layers.{layer}.feed_forward.w3.weight"]
@@ -217,7 +217,7 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
         final_embedding = embedding_after_edit+output_after_feedforward
     
     # final_norm
-    final_embedding = rms_norm(final_embedding, model["norm.weight"])
+    final_embedding = rms_norm(final_embedding, model["norm.weight"], config)
 
     logits = torch.matmul(final_embedding[-1], model["output.weight"].T)
 
