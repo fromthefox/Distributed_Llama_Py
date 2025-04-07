@@ -7,13 +7,13 @@ import socket_comm_module
 import threading
 
 
-def input_embedding(input_text, tokenizer, config, model):
+def input_embedding(input_text, tokenizer, config, model, dtype):
     tokens = [128000] + tokenizer.encode(input_text)
     tokens = torch.tensor(tokens)
     tokens_length = len(tokens)
     embedding_layer = torch.nn.Embedding(config["vocab_size"], config["dim"])
     embedding_layer.weight.data.copy_(model["tok_embeddings.weight"])
-    token_embeddings_unnormalized = embedding_layer(tokens).to(torch.bfloat16)
+    token_embeddings_unnormalized = embedding_layer(tokens).to(dtype)
     return token_embeddings_unnormalized, tokens_length
 
 def rms_norm(tensor, norm_weights, config):
@@ -68,8 +68,9 @@ def get_freqs_cis(config, tokens_length):
 
 def QKV_distribution(addrs_list:list, ports_list:list, tar_index:int, server: socket_server.TCPServer, q_chunks:tuple, k_chunks:tuple, v_chunks:tuple, layer_embedding_norm:torch.Tensor) -> list:
     QKV_res_list = []
-
-    tar_addr = tuple(addrs_list[tar_index], ports_list[tar_index])
+    target_ip = addrs_list[tar_index]
+    target_port = int(ports_list[tar_index])
+    tar_addr = (target_ip, target_port)
 
     # send the layer_embedding_norm_bytes to the server
     layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm)
@@ -127,10 +128,10 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
     :return: next text predicted by LLM
     """
 
-    # conn = server.connection_manager.get_connection(address)
-    
+    # dtype is here
+    dtype = torch.bfloat16
 
-    token_embeddings_unnormalized, tokens_length = input_embedding(input_text=input_text, tokenizer=tokenizer, config=config, model=model)
+    token_embeddings_unnormalized, tokens_length = input_embedding(input_text=input_text, tokenizer=tokenizer, config=config, model=model, dtype=dtype)
     freqs_cis = get_freqs_cis(config, tokens_length)
 
     # how to get addrs_list?
@@ -139,6 +140,9 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
 
     final_embedding = token_embeddings_unnormalized
     for layer in range(config["n_layers"]):
+
+        print(f"layer:{layer}")
+
         qkv_attention_store = []
         layer_embedding_norm = rms_norm(final_embedding, model[f"layers.{layer}.attention_norm.weight"], config)
 
@@ -187,22 +191,25 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
             q_per_token = q_per_token_all_heads[0]
             k_per_token = k_per_token_all_heads[head//4]
             v_per_token = v_per_token_all_heads[head//4]
+            v_per_token = v_per_token.to(dtype)
 
             q_per_token_split_into_pairs = q_per_token.float().view(q_per_token.shape[0], -1, 2)
             q_per_token_as_complex_numbers = torch.view_as_complex(q_per_token_split_into_pairs)
             q_per_token_split_into_pairs_rotated = torch.view_as_real(q_per_token_as_complex_numbers * freqs_cis)
-            q_per_token_rotated = q_per_token_split_into_pairs_rotated.view(q_per_token.shape)
+            q_per_token_rotated = q_per_token_split_into_pairs_rotated.view(q_per_token.shape).to(dtype)
 
             k_per_token_split_into_pairs = k_per_token.float().view(k_per_token.shape[0], -1, 2)
             k_per_token_as_complex_numbers = torch.view_as_complex(k_per_token_split_into_pairs)
             k_per_token_split_into_pairs_rotated = torch.view_as_real(k_per_token_as_complex_numbers * freqs_cis)
-            k_per_token_rotated = k_per_token_split_into_pairs_rotated.view(k_per_token.shape)
+            k_per_token_rotated = k_per_token_split_into_pairs_rotated.view(k_per_token.shape).to(dtype)
 
             qk_per_token = torch.matmul(q_per_token_rotated, k_per_token_rotated.T)/(128)**0.5
+            qk_per_token = qk_per_token.to(dtype)
+
             mask = torch.full((len(token_embeddings_unnormalized), len(token_embeddings_unnormalized)), float("-inf"))
             mask = torch.triu(mask, diagonal=1)
             qk_per_token_after_masking = qk_per_token + mask
-            qk_per_token_after_masking_after_softmax = torch.nn.functional.softmax(qk_per_token_after_masking, dim=1).to(torch.bfloat16)
+            qk_per_token_after_masking_after_softmax = torch.nn.functional.softmax(qk_per_token_after_masking, dim=1).to(dtype)
             qkv_attention = torch.matmul(qk_per_token_after_masking_after_softmax, v_per_token)
             qkv_attention_store.append(qkv_attention)
         

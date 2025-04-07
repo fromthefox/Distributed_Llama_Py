@@ -30,6 +30,8 @@ def generation_loop(initial_input, max_tokens_length, model, tokenizer, config, 
             allocation_list=allocation_list,
             user_config=user_config
         )
+
+        print(f"Generated text: {next_text}")
         
         # Update Status
         full_output += next_text
