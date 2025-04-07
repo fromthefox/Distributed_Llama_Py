@@ -29,13 +29,6 @@ def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_pa
     # 2. load model, tokenizer, config
     model, tokenizer, config = init.load_model(model_path, tokenizer_path, config_path)
     user_config_dict = init.parse_ini_file(user_config_path)
-    addrs_list = user_config_dict["network_config"]["addrs_list"]
-    print(addrs_list)
-    print(type(addrs_list))
-    conn = server.connection_manager.get_connection(("192.168.1.105", 34567))
-    print("111111111111111111111111111111\n")
-    print(conn)
-    print("111111111111111111111111111111\n")
 
     # 3. start the inference
 

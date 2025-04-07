@@ -66,11 +66,10 @@ def get_freqs_cis(config, tokens_length):
     
     return freqs_cis
 
-def QKV_distribution(addrs_list:list, tar_index:int, server: socket_server.TCPServer, q_chunks:tuple, k_chunks:tuple, v_chunks:tuple, layer_embedding_norm:torch.Tensor) -> list:
+def QKV_distribution(addrs_list:list, ports_list:list, tar_index:int, server: socket_server.TCPServer, q_chunks:tuple, k_chunks:tuple, v_chunks:tuple, layer_embedding_norm:torch.Tensor) -> list:
     QKV_res_list = []
 
-    tar_addr = addrs_list[tar_index]
-    print(tar_addr)
+    tar_addr = tuple(addrs_list[tar_index], ports_list[tar_index])
 
     # send the layer_embedding_norm_bytes to the server
     layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm)
@@ -136,7 +135,7 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
 
     # how to get addrs_list?
     addrs_list = user_config["network_config"]["addrs_list"]
-    conn = server.connection_manager.get_connection(addrs_list[0])
+    ports_list = user_config["network_config"]["ports_list"]
 
     final_embedding = token_embeddings_unnormalized
     for layer in range(config["n_layers"]):
@@ -163,6 +162,7 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
             thread = threading.Thread(
                 target=lambda idx, r: r.__setitem__(idx, QKV_distribution(
                     addrs_list,
+                    ports_list,
                     idx,
                     server,
                     q_chunks,
