@@ -188,7 +188,7 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
 
         # multi-heads attention process
         for head in range(config["n_heads"]):
-            q_per_token = q_per_token_all_heads[0]
+            q_per_token = q_per_token_all_heads[head]
             k_per_token = k_per_token_all_heads[head//4]
             v_per_token = v_per_token_all_heads[head//4]
             v_per_token = v_per_token.to(dtype)
