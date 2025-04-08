@@ -155,6 +155,8 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
     ports_list = user_config["network_config"]["ports_list"]
 
     final_embedding = token_embeddings_unnormalized
+    computation_timeinfo_for_all_nodes = []
+    translation_timeinfo_for_all_nodes = []
     for layer in range(config["n_layers"]):
 
         print(f"layer:{layer}")
@@ -204,7 +206,10 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
         # wait for all threads to finish
         for thread in threads:
             thread.join()
-            
+
+        computation_timeinfo_for_all_nodes.append(computation_timeinfo)
+        translation_timeinfo_for_all_nodes.append(translation_timeinfo)
+
         # cat the multi-nodes results
         q_per_token_all_heads, k_per_token_all_heads, v_per_token_all_heads = cat_res(results=results)
 
@@ -257,5 +262,17 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
     next_token = torch.argmax(logits, dim=-1)
 
     next_text = tokenizer.decode([next_token.item()])
+    computation_time_list = []
+    translation_time_list = []
+    for i in range(len(allocation_list)):
+        mid_computation_time = 0
+        mid_translation_time = 0
+        for j in range(len(computation_timeinfo_for_all_nodes)):
+            mid_computation_time += computation_timeinfo_for_all_nodes[j][i]
+            mid_translation_time += translation_timeinfo_for_all_nodes[j][i]
+        computation_time_list.append(mid_computation_time)
+        translation_time_list.append(mid_translation_time)
 
-    return next_text
+    print(f"computation_time_list:{computation_time_list}")
+    print(f"translation_time_list:{translation_time_list}")
+    return next_text, computation_time_list, translation_time_list
