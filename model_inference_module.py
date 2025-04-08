@@ -107,8 +107,8 @@ def QKV_distribution(addrs_list:list, ports_list:list, tar_index:int, server: so
 
         QKV_end = time.perf_counter()
         QKV_sum_time = QKV_end - QKV_start
-        translation_timinfo = QKV_sum_time - computation_timeinfo
-    return QKV_res_list, computation_timeinfo, translation_timinfo
+        translation_timeinfo = QKV_sum_time - computation_timeinfo
+    return QKV_res_list, computation_timeinfo, translation_timeinfo
 
 def cat_res(results:list) -> list:
     """
