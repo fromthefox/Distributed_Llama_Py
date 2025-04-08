@@ -3,6 +3,7 @@ import threading
 from socket_comm_module import send_message, receive_message
 from socket_comm_module import unpack_tensor, pack_tensor
 import torch
+import time
 
 class TCPClient:
     """
@@ -30,7 +31,8 @@ class TCPClient:
                 if not data:
                     break
                 
-                data_tensor = unpack_tensor(data)
+                data_unpack = unpack_tensor(data)
+                data_tensor = data_unpack["tensor"]
                 if len(data_tensor.shape) == 2:
                     """
                     here we can also pack some str with the data to differ the tensor type from input_embedding and matrix
@@ -42,6 +44,7 @@ class TCPClient:
                     print('Received')
                     response = b'Received'
                 else:
+                    computation_start = time.perf_counter()
                     matrix = data_tensor
                     matrix_res = torch.empty(matrix.shape[0], input_embedding.shape[0], matrix.shape[1])
                     if input_embedding == None:
@@ -50,7 +53,9 @@ class TCPClient:
                     else:
                         for i in range(matrix.shape[0]):
                             matrix_res[i] = torch.matmul(input_embedding, matrix[i].T)
-                    response = pack_tensor(matrix_res)
+                    computation_end = time.perf_counter()
+                    computation_time = computation_end - computation_start
+                    response = pack_tensor(matrix_res, computation_time, "TIMING")
                 
                 send_message(self.sock, response)
             except (ConnectionResetError, BrokenPipeError):

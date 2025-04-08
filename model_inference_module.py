@@ -71,7 +71,7 @@ def QKV_distribution(addrs_list:list, ports_list:list, tar_index:int, server: so
     target_ip = addrs_list[tar_index]
     target_port = int(ports_list[tar_index])
     tar_addr = (target_ip, target_port)
-
+    results_timeinfo = []
     # send the layer_embedding_norm_bytes to the server
     layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm)
     response_embedding = server.send_data(tar_addr, layer_embedding_norm_bytes)
@@ -80,19 +80,28 @@ def QKV_distribution(addrs_list:list, ports_list:list, tar_index:int, server: so
         q_chunks_bytes = socket_comm_module.pack_tensor(tensor=q_chunks[tar_index])
         response_q_per_token_all_heads_piece_bytes = server.send_data(tar_addr, q_chunks_bytes)
         response_q_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_q_per_token_all_heads_piece_bytes)
-        QKV_res_list.append(response_q_per_token_all_heads_piece)
+        if response_q_per_token_all_heads_piece["message_type"] == "TIMING":
+            computation_time = response_q_per_token_all_heads_piece["computation_time"]
+            results_timeinfo.append(computation_time)
+        QKV_res_list.append(response_q_per_token_all_heads_piece["tensor"])
         
         k_chunks_bytes = socket_comm_module.pack_tensor(tensor=k_chunks[tar_index])
         response_k_per_token_all_heads_piece_bytes = server.send_data(tar_addr, k_chunks_bytes)
         response_k_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_k_per_token_all_heads_piece_bytes)
-        QKV_res_list.append(response_k_per_token_all_heads_piece)
+        if response_k_per_token_all_heads_piece["message_type"] == "TIMING":
+            computation_time = response_k_per_token_all_heads_piece["computation_time"]
+            results_timeinfo.append(computation_time)
+        QKV_res_list.append(response_k_per_token_all_heads_piece["tensor"])
         
         v_chunks_bytes = socket_comm_module.pack_tensor(tensor=v_chunks[tar_index])
         response_v_per_token_all_heads_piece_bytes = server.send_data(tar_addr, v_chunks_bytes)
         response_v_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_v_per_token_all_heads_piece_bytes)
-        QKV_res_list.append(response_v_per_token_all_heads_piece)
+        if response_v_per_token_all_heads_piece["message_type"] == "TIMING":
+            computation_time = response_v_per_token_all_heads_piece["computation_time"]
+            results_timeinfo.append(computation_time)
+        QKV_res_list.append(response_v_per_token_all_heads_piece["tensor"])
     
-    return QKV_res_list
+    return QKV_res_list, results_timeinfo
 
 def cat_res(results:list) -> list:
     """
@@ -161,10 +170,14 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
 
         # multi-threading to distribute the qkv matrix
         results = [None] * len(addrs_list)
+        results_timeinfo = [None] * len(addrs_list)
         threads = []
         for i in range(len(allocation_list)):
             thread = threading.Thread(
-                target=lambda idx, r: r.__setitem__(idx, QKV_distribution(
+                target=lambda idx, r, t: (
+                    r.__setitem__(idx, result[0]),
+                    t.__setitem__(idx, result[1])
+                ) if (result := QKV_distribution(
                     addrs_list,
                     ports_list,
                     idx,
@@ -173,8 +186,8 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
                     k_chunks,
                     v_chunks,
                     layer_embedding_norm
-                )),
-                args=(i, results)
+                )) else None,
+                args=(i, results, results_timeinfo)
             )
             threads.append(thread)
             thread.start()
