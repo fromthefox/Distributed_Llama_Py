@@ -204,7 +204,7 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
         # wait for all threads to finish
         for thread in threads:
             thread.join()
-
+            
         # cat the multi-nodes results
         q_per_token_all_heads, k_per_token_all_heads, v_per_token_all_heads = cat_res(results=results)
 
