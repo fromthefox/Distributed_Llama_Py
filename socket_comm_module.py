@@ -10,12 +10,16 @@ import io
 import torch
 
 def send_message(sock: socket.socket, data: bytes):
-    """发送带长度前缀的消息"""
+    """
+    Send a message with a length prefix
+    """
     length = len(data)
     sock.sendall(struct.pack('!I', length) + data)
 
 def receive_message(sock: socket.socket):
-    """接收带长度前缀的消息"""
+    """
+    Receive message with length prefix
+    """
     try:
         # 接收4字节的长度信息
         length_data = _recv_all(sock, 4)
@@ -31,7 +35,9 @@ def receive_message(sock: socket.socket):
         return None
     
 def _recv_all(sock: socket.socket, n: int):
-    """保证接收指定长度的数据"""
+    """
+    Guaranteed to receive data of the specified length
+    """
     data = bytearray()
     while len(data) < n:
         packet = sock.recv(n - len(data))
