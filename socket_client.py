@@ -55,6 +55,9 @@ class TCPClient:
                             matrix_res[i] = torch.matmul(input_embedding, matrix[i].T)
                     computation_end = time.perf_counter()
                     computation_time = computation_end - computation_start
+                    print("---------------------\n")
+                    print(f"computation time: {computation_time}")
+                    print("---------------------\n")
                     response = pack_tensor(matrix_res, computation_time, "TIMING")
                 
                 send_message(self.sock, response)
