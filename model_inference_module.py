@@ -5,6 +5,7 @@ import torch
 import socket_server
 import socket_comm_module
 import threading
+import time
 
 
 def input_embedding(input_text, tokenizer, config, model, dtype):
@@ -71,7 +72,9 @@ def QKV_distribution(addrs_list:list, ports_list:list, tar_index:int, server: so
     target_ip = addrs_list[tar_index]
     target_port = int(ports_list[tar_index])
     tar_addr = (target_ip, target_port)
-    results_timeinfo = []
+    computation_timeinfo_list = []
+    QKV_start = time.perf_counter()
+    translation_timinfo = None
     # send the layer_embedding_norm_bytes to the server
     layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm)
     response_embedding = server.send_data(tar_addr, layer_embedding_norm_bytes)
@@ -81,7 +84,7 @@ def QKV_distribution(addrs_list:list, ports_list:list, tar_index:int, server: so
         response_q_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_q_per_token_all_heads_piece_bytes)
         if response_q_per_token_all_heads_piece[1] == "TIMING":
             computation_time = response_q_per_token_all_heads_piece[2]
-            results_timeinfo.append(computation_time)
+            computation_timeinfo_list.append(computation_time)
         QKV_res_list.append(response_q_per_token_all_heads_piece[0])
         
         k_chunks_bytes = socket_comm_module.pack_tensor(tensor=k_chunks[tar_index])
@@ -89,7 +92,7 @@ def QKV_distribution(addrs_list:list, ports_list:list, tar_index:int, server: so
         response_k_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_k_per_token_all_heads_piece_bytes)
         if response_k_per_token_all_heads_piece[1] == "TIMING":
             computation_time = response_k_per_token_all_heads_piece[2]
-            results_timeinfo.append(computation_time)
+            computation_timeinfo_list.append(computation_time)
         QKV_res_list.append(response_k_per_token_all_heads_piece[0])
         
         v_chunks_bytes = socket_comm_module.pack_tensor(tensor=v_chunks[tar_index])
@@ -97,10 +100,15 @@ def QKV_distribution(addrs_list:list, ports_list:list, tar_index:int, server: so
         response_v_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_v_per_token_all_heads_piece_bytes)
         if response_v_per_token_all_heads_piece[1] == "TIMING":
             computation_time = response_v_per_token_all_heads_piece[2]
-            results_timeinfo.append(computation_time)
+            computation_timeinfo_list.append(computation_time)
         QKV_res_list.append(response_v_per_token_all_heads_piece[0])
-    
-    return QKV_res_list, results_timeinfo
+
+        computation_timeinfo = sum(computation_timeinfo_list)
+
+        QKV_end = time.perf_counter()
+        QKV_sum_time = QKV_end - QKV_start
+        translation_timinfo = QKV_sum_time - computation_timeinfo
+    return QKV_res_list, computation_timeinfo, translation_timinfo
 
 def cat_res(results:list) -> list:
     """
@@ -169,13 +177,15 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
 
         # multi-threading to distribute the qkv matrix
         results = [None] * len(addrs_list)
-        results_timeinfo = [None] * len(addrs_list)
+        computation_timeinfo = [None] * len(addrs_list)
+        translation_timeinfo = [None] * len(addrs_list)
         threads = []
         for i in range(len(allocation_list)):
             thread = threading.Thread(
-                target=lambda idx, r, t: (
+                target=lambda idx, r, t, x: (
                     r.__setitem__(idx, result[0]),
-                    t.__setitem__(idx, result[1])
+                    t.__setitem__(idx, result[1]),
+                    x.__setitem__(idx, result[2])
                 ) if (result := QKV_distribution(
                     addrs_list,
                     ports_list,
@@ -186,7 +196,7 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
                     v_chunks,
                     layer_embedding_norm
                 )) else None,
-                args=(i, results, results_timeinfo)
+                args=(i, results, computation_timeinfo, translation_timeinfo)
             )
             threads.append(thread)
             thread.start()
