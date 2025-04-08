@@ -21,7 +21,7 @@ def generation_loop(initial_input, max_tokens_length, model, tokenizer, config, 
 
     while True:
         # Perform single-step reasoning
-        next_text = inference_server(
+        res = inference_server(
             model=model,
             tokenizer=tokenizer,
             config=config,
@@ -30,6 +30,9 @@ def generation_loop(initial_input, max_tokens_length, model, tokenizer, config, 
             allocation_list=allocation_list,
             user_config=user_config
         )
+        next_text = res[0]
+        computation_time_list = res[1]
+        translation_time_list = res[2]
 
         print(f"Generated text: {next_text}")
         
