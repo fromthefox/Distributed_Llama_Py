@@ -13,7 +13,7 @@ class TCPClient:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
         # Bind to a specific address and port (optional), make sure to use a different port than the server
-        self.sock.bind(("192.168.1.100", 34567))
+        self.sock.bind(("192.168.1.107", 34567))
 
         # Connect to the server
         self.sock.connect((host, port))
@@ -32,7 +32,7 @@ class TCPClient:
                     break
                 
                 data_unpack = unpack_tensor(data)
-                data_tensor = data_unpack["tensor"]
+                data_tensor = data_unpack[0]
                 if len(data_tensor.shape) == 2:
                     """
                     here we can also pack some str with the data to differ the tensor type from input_embedding and matrix
@@ -55,9 +55,6 @@ class TCPClient:
                             matrix_res[i] = torch.matmul(input_embedding, matrix[i].T)
                     computation_end = time.perf_counter()
                     computation_time = computation_end - computation_start
-                    print("---------------------\n")
-                    print(f"computation time: {computation_time}")
-                    print("---------------------\n")
                     response = pack_tensor(matrix_res, computation_time, "TIMING")
                 
                 send_message(self.sock, response)
