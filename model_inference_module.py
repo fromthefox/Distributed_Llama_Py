@@ -75,12 +75,10 @@ def QKV_distribution(addrs_list:list, ports_list:list, tar_index:int, server: so
     # send the layer_embedding_norm_bytes to the server
     layer_embedding_norm_bytes = socket_comm_module.pack_tensor(tensor=layer_embedding_norm)
     response_embedding = server.send_data(tar_addr, layer_embedding_norm_bytes)
-    print("QKV_DIS\n")
     if response_embedding == b"Received": # means the client received the embedding res
         q_chunks_bytes = socket_comm_module.pack_tensor(tensor=q_chunks[tar_index])
         response_q_per_token_all_heads_piece_bytes = server.send_data(tar_addr, q_chunks_bytes)
         response_q_per_token_all_heads_piece = socket_comm_module.unpack_tensor(response_q_per_token_all_heads_piece_bytes)
-        print("response_q_per_token_all_heads_piece:", response_q_per_token_all_heads_piece)
         if response_q_per_token_all_heads_piece[1] == "TIMING":
             computation_time = response_q_per_token_all_heads_piece[2]
             results_timeinfo.append(computation_time)
@@ -196,10 +194,6 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
         # wait for all threads to finish
         for thread in threads:
             thread.join()
-
-        print("----------------------\n")
-        print(f"results_timeinfo: {results_timeinfo}")
-        print("----------------------\n")
 
         # cat the multi-nodes results
         q_per_token_all_heads, k_per_token_all_heads, v_per_token_all_heads = cat_res(results=results)
