@@ -6,6 +6,7 @@ import socket_server
 import socket_comm_module
 import threading
 import time
+import numpy as np
 
 
 def input_embedding(input_text, tokenizer, config, model, dtype):
@@ -276,3 +277,98 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
     print(f"computation_time_list:{computation_time_list}")
     print(f"translation_time_list:{translation_time_list}")
     return next_text, computation_time_list, translation_time_list
+
+def proportinal_allocation_dis(scores_list:list, model_unsplitted_dim:int) -> list:
+    """
+    this func is used to allocate the conculation tast of the inference according to the scores_list.
+    :param scores_list: the list of the scores, which is used to allocate the calculation task.
+    :param model_unsplitted_dim: the total number wait for splitting.
+    :return: the list of the allocation result.
+    """
+    if not scores_list:
+        raise ValueError("scores_list cannot be empty")
+    
+    if model_unsplitted_dim < 0:
+        raise ValueError("model_unsplitted_dim must > 0")
+    
+    scores = [float(s) for s in scores_list]
+
+    total_weight = sum(scores)
+
+    # Calculation of the theoretical assigned value
+    exact_allocations = [model_unsplitted_dim * (s / total_weight) for s in scores]
+
+    integer_parts = [int(a) for a in exact_allocations]
+    fractional_parts = [a - int(a) for a in exact_allocations]
+
+    # Calculate the remaining number to be allocated
+    total_allocated = sum(integer_parts)
+    remaining = model_unsplitted_dim - total_allocated
+
+    if remaining < 0:
+        raise RuntimeError("Algorithm error: allocation value exceeds total")
+    
+    if remaining > 0:
+        # Sort indices in descending order by fractional part
+        # 从两个维度的降序排列：1. 小数部分从大到小；2. 得分从大到小
+        sorted_indices = sorted(
+            range(len(fractional_parts)),
+            key=lambda i: (-fractional_parts[i], -scores[i])
+        )
+        
+        # Allocate the remaining quantity
+        for i in sorted_indices[:remaining]:
+            integer_parts[i] += 1
+    
+    return integer_parts
+
+def dynamic_weights_dis(dynamic_weights:np.ndarray, base_weights:np.ndarray, dynamic_ratio = 0.6) -> np.ndarray:
+    """
+    this func is used to compute the dynamic weights based on the dynamic weights and the base weights.
+    :param dynamic_weights: the dynamic weights from the nodes.
+    :param base_weights: the base weights for the nodes.
+    :return: the dynamic weights for the nodes.
+    """
+    final_weights = (1-dynamic_ratio) * base_weights + dynamic_ratio * dynamic_weights
+    return final_weights / final_weights.sum()
+
+def robust_normalize_dis(arr):
+    q10 = np.percentile(arr, 10)
+    q90 = np.percentile(arr, 90)
+    return (arr - q10) / (q90 - q10 + 1e-8)
+
+def total_score_dis(nodes_info_dict:dict, dynamic_weights:np.ndarray)->list:
+    """
+    func: compute the total score of the nodes based on 3 dimensions
+    input: nodes_info_dict, including arithmetic, bandwidth and memory
+    output: the list including the score of each node
+    """
+    # 1. Get the necessary information
+    arithmetic_list, bandwidth_list, memory_list = nodes_info_dict["arithmetic"], nodes_info_dict["bandwidth"], nodes_info_dict["memory"]
+    
+    # mem_mask = memory_filter(memory, task_demand["memory"])
+    # Memory Hard Filtering
+
+
+    norm_arith = robust_normalize_dis(arithmetic_list)
+    norm_bw = robust_normalize_dis(bandwidth_list)
+    norm_mem = robust_normalize_dis(memory_list)
+
+    weights = np.array(dynamic_weights)
+    weights = weights / (weights.sum() + 1e-8)
+
+    hybrid_scores = []
+    for a, b, m in zip(norm_arith, norm_bw, norm_mem):
+        # Arithmetic weighted guarantee basis values
+        base_score = np.dot([a, b, m], weights)
+        
+        # Geometric weighting improves equilibrium
+        geo_score = (a**weights[0]) * (b**weights[1]) * (m**weights[2])
+        
+        # Harmonize the advantages of both
+        hybrid = 0.7 * geo_score + 0.3 * base_score
+        hybrid_scores.append(hybrid)
+    
+    final_scores = (final_scores - final_scores.min()) / (final_scores.max() - final_scores.min() + 1e-8)
+
+    return hybrid_scores

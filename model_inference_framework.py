@@ -6,9 +6,9 @@ import model_inference_module
 from model_inference_module import QKV_distribution
 import threading
 import torch
-from model_inference_module import inference_server
+from model_inference_module import inference_server, dynamic_weights_dis, proportinal_allocation_dis, total_score_dis
 
-def generation_loop(initial_input, max_tokens_length, model, tokenizer, config, server, allocation_list, user_config):
+def generation_loop(initial_input, max_tokens_length, model, tokenizer, config, server, allocation_list, user_config, dynamic_part, nodes_info_dict):
     """
     Generation loop for autocontinuation
     :param initial_input: initial input text
@@ -21,6 +21,11 @@ def generation_loop(initial_input, max_tokens_length, model, tokenizer, config, 
 
     while True:
         # Perform single-step reasoning
+        dynamic_weights_array = dynamic_weights_dis(dynamic_weights=dynamic_part, base_weights=[0.5, 0.4, 0.1])
+        scores_list = total_score_dis(nodes_info_dict, dynamic_weights_array)
+        # here 128 is the unsplitted dim of the model.
+        allocation_list = proportinal_allocation_dis(scores_list, 128)
+        
         res = inference_server(
             model=model,
             tokenizer=tokenizer,

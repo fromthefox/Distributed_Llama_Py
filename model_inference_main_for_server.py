@@ -7,9 +7,10 @@ import init
 import socket_server
 import threading
 import model_inference_framework
+import numpy as np
 
 
-def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_path:str, config_path:str, user_config_path:str) -> str:
+def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_path:str, config_path:str, user_config_path:str, dynamic_part:np.ndarray, nodes_info_dict:dict) -> str:
     """
     the whole framework of the project.
     :parma allocation_list: list, like [25, 48, 55] for unsplitted-dim == 128
@@ -45,7 +46,9 @@ def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_pa
         config=config,
         server=server,
         allocation_list=allocation_list,
-        user_config=user_config_dict
+        user_config=user_config_dict,
+        dynamic_part=dynamic_part,
+        nodes_info_dict=nodes_info_dict
     )
 
     return full_output
