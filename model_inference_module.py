@@ -372,3 +372,25 @@ def total_score_dis(nodes_info_dict:dict, dynamic_weights:np.ndarray)->list:
     final_scores = (final_scores - final_scores.min()) / (final_scores.max() - final_scores.min() + 1e-8)
 
     return hybrid_scores
+
+def cal_new_base_weights(computation_time_list:list, translation_time_list:list) -> np.ndarray:
+    """
+    this func is used to compute the new base weights based on the computation time and the communication time.
+    :param computation_time_list: the computation time list from each node.
+    :param comm_time_list: the communication time list from each node.
+    :return: the new base weights for the nodes.
+    """
+    computation_times = np.array(computation_time_list)
+    translation_times = np.array(translation_time_list)
+    
+    computation_sum_time = sum(computation_times)
+    translation_sum_time = sum(translation_times)
+    
+    total_time = computation_sum_time + translation_sum_time
+    computation_ratio = (computation_sum_time / total_time) * 0.9
+    translation_ratio = (translation_sum_time / total_time) * 0.9
+    memory_ratio = 0.1
+    base_weights_list = [computation_ratio, translation_ratio, memory_ratio]
+    new_base_weights = np.array(base_weights_list).flatten()
+
+    return new_base_weights
