@@ -287,8 +287,8 @@ def proportinal_allocation_dis(scores_list:list, model_unsplitted_dim:int) -> li
     :param model_unsplitted_dim: the total number wait for splitting.
     :return: the list of the allocation result.
     """
-    if not scores_list:
-        raise ValueError("scores_list cannot be empty")
+    # if not scores_list:
+    #     raise ValueError("scores_list cannot be empty")
     
     if model_unsplitted_dim < 0:
         raise ValueError("model_unsplitted_dim must > 0")
@@ -324,13 +324,15 @@ def proportinal_allocation_dis(scores_list:list, model_unsplitted_dim:int) -> li
     
     return integer_parts
 
-def dynamic_weights_dis(dynamic_weights:np.ndarray, base_weights:np.ndarray, dynamic_ratio = 0.6) -> np.ndarray:
+def dynamic_weights_dis(dynamic_weights:np.ndarray, base_weights:np.ndarray, dynamic_ratio = 0.05) -> np.ndarray:
     """
     this func is used to compute the dynamic weights based on the dynamic weights and the base weights.
     :param dynamic_weights: the dynamic weights from the nodes.
     :param base_weights: the base weights for the nodes.
     :return: the dynamic weights for the nodes.
     """
+    dynamic_weights = np.array(dynamic_weights)
+    base_weights = np.array(base_weights)   
     final_weights = (1-dynamic_ratio) * base_weights + dynamic_ratio * dynamic_weights
     return final_weights / final_weights.sum()
 
@@ -364,16 +366,15 @@ def total_score_dis(nodes_info_dict:dict, dynamic_weights:np.ndarray)->list:
         # Arithmetic weighted guarantee basis values
         base_score = np.dot([a, b, m], weights)
         
-        # Geometric weighting improves equilibrium
-        geo_score = (a**weights[0]) * (b**weights[1]) * (m**weights[2])
-        
         # Harmonize the advantages of both
-        hybrid = 0.7 * geo_score + 0.3 * base_score
+        hybrid = base_score
         hybrid_scores.append(hybrid)
     
-    final_scores = (final_scores - final_scores.min()) / (final_scores.max() - final_scores.min() + 1e-8)
-
-    return hybrid_scores
+    # Softmax normalization
+    hybrid_scores = np.array(hybrid_scores)
+    exp_scores = np.exp(hybrid_scores - np.max(hybrid_scores))  # 减去最大值避免数值溢出
+    final_scores = exp_scores / (exp_scores.sum() + 1e-8)
+    return final_scores
 
 def cal_new_base_weights(computation_time_list:list, translation_time_list:list) -> np.ndarray:
     """
@@ -389,10 +390,22 @@ def cal_new_base_weights(computation_time_list:list, translation_time_list:list)
     translation_sum_time = sum(translation_times)
     
     total_time = computation_sum_time + translation_sum_time
-    computation_ratio = (computation_sum_time / total_time) * 0.9
-    translation_ratio = (translation_sum_time / total_time) * 0.9
-    memory_ratio = 0.1
-    base_weights_list = [computation_ratio, translation_ratio, memory_ratio]
+    computation_ratio = (computation_sum_time / total_time)
+    translation_ratio = (translation_sum_time / total_time)
+    base_weights_list = [computation_ratio, translation_ratio, 0]
     new_base_weights = np.array(base_weights_list).flatten()
 
     return new_base_weights
+
+nodes_info_dict = {'arithmetic': [631, 631, 2301, 2301], 'memory': [8, 8, 350, 350], 'bandwidth': [76, 76, 56, 56]}
+computation_time_list = [0.9025006659998382, 0.947418752000118, 0.6442230499815196, 0.9484541683923453]
+translation_time_list = [164.04131133396876, 203.54729014797599, 1117.1440215499897, 1135.9753773316334]
+dynamic_part = [0.33333333, 0.33333333, 0.33333333]
+new_base_weights = cal_new_base_weights(computation_time_list=computation_time_list, translation_time_list=translation_time_list)
+dynamic_weights_array = dynamic_weights_dis(dynamic_weights=dynamic_part, base_weights=new_base_weights)
+scores_list = total_score_dis(nodes_info_dict, dynamic_weights_array)
+allocation_list = proportinal_allocation_dis(scores_list, 128)
+print(f"Dynamic Part: {dynamic_part}")
+print(f"Dynamic Weights: {dynamic_weights_array}")
+print(f"Final Scores: {scores_list}")
+print(f"Allocation List: {allocation_list}")
