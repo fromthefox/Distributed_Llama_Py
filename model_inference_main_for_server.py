@@ -54,9 +54,11 @@ def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_pa
     return full_output
 
 infenerce_main_for_server(
-    allocation_list=[96, 32],
+    allocation_list=[56, 48, 16, 8],
     model_path=r"C:\Users\yhbia\Desktop\边彦晖\Proj\Meta_llama\Meta-Llama-3-8B\original\consolidated.00.pth",
     tokenizer_path=r"C:\Users\yhbia\Desktop\边彦晖\Proj\Meta_llama\Meta-Llama-3-8B\original\tokenizer.model",
     config_path=r"C:\Users\yhbia\Desktop\边彦晖\Proj\Meta_llama\Meta-Llama-3-8B\original\params.json",
-    user_config_path=r"C:\Users\yhbia\Desktop\学校\25.6.30-边彦晖-毕业设计\Distributed_Llama_Py\user_config.ini"
+    user_config_path=r"C:\Users\yhbia\Desktop\学校\25.6.30-边彦晖-毕业设计\auto_deployment_summary\LLM_Auto_Deployment\Distributed_Llama_Py\user_config.ini",
+    dynamic_part=np.array([0.5, 0.4, 0.1]),
+    nodes_info_dict={'arithmetic': [603, 603, 2301, 2301], 'memory': [8, 8, 350, 350], 'bandwidth': [75, 75, 64, 64]}
 )

@@ -154,6 +154,8 @@ def inference_server(model, tokenizer, config, server, input_text, allocation_li
     # how to get addrs_list?
     addrs_list = user_config["network_config"]["addrs_list"]
     ports_list = user_config["network_config"]["ports_list"]
+    print(addrs_list)
+    print(ports_list)
 
     final_embedding = token_embeddings_unnormalized
     computation_timeinfo_for_all_nodes = []

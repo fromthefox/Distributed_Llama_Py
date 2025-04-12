@@ -21,11 +21,6 @@ def generation_loop(initial_input, max_tokens_length, model, tokenizer, config, 
 
     while True:
         # Perform single-step reasoning
-        new_base_weights = cal_new_base_weights(computation_time_list=computation_time_list, translation_time_list=translation_time_list)
-        dynamic_weights_array = dynamic_weights_dis(dynamic_weights=dynamic_part, base_weights=new_base_weights)
-        scores_list = total_score_dis(nodes_info_dict, dynamic_weights_array)
-        # here 128 is the unsplitted dim of the model.
-        allocation_list = proportinal_allocation_dis(scores_list, 128)
         
         res = inference_server(
             model=model,
@@ -41,6 +36,8 @@ def generation_loop(initial_input, max_tokens_length, model, tokenizer, config, 
         translation_time_list = res[2]
 
         print(f"Generated text: {next_text}")
+        print(f"Computation time: {computation_time_list}")
+        print(f"Translation time: {translation_time_list}")
         
         # Update Status
         full_output += next_text
@@ -55,5 +52,11 @@ def generation_loop(initial_input, max_tokens_length, model, tokenizer, config, 
         
         if any(stop_conditions):
             break
+
+        # new_base_weights = cal_new_base_weights(computation_time_list=computation_time_list, translation_time_list=translation_time_list)
+        # dynamic_weights_array = dynamic_weights_dis(dynamic_weights=dynamic_part, base_weights=new_base_weights)
+        # scores_list = total_score_dis(nodes_info_dict, dynamic_weights_array)
+        # # here 128 is the unsplitted dim of the model.
+        # allocation_list = proportinal_allocation_dis(scores_list, 128)
 
     return full_output
