@@ -54,7 +54,7 @@ def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_pa
     return full_output
 
 infenerce_main_for_server(
-    allocation_list=[32, 32, 32, 32],
+    allocation_list=[47, 47, 17, 17],
     model_path=r"C:\Users\yhbia\Desktop\边彦晖\Proj\Meta_llama\Meta-Llama-3-8B\original\consolidated.00.pth",
     tokenizer_path=r"C:\Users\yhbia\Desktop\边彦晖\Proj\Meta_llama\Meta-Llama-3-8B\original\tokenizer.model",
     config_path=r"C:\Users\yhbia\Desktop\边彦晖\Proj\Meta_llama\Meta-Llama-3-8B\original\params.json",
