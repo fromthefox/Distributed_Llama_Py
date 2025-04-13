@@ -324,6 +324,29 @@ def proportinal_allocation_dis(scores_list:list, model_unsplitted_dim:int) -> li
     
     return integer_parts
 
+def cal_new_dynamic_ratio(computation_time_list:list, translation_time_list:list) -> float:
+    """
+    this func is used to compute the new dynamic ratio based on the computation time and the communication time.
+    :param computation_time_list: the computation time list from each node.
+    :param comm_time_list: the communication time list from each node.
+    :return: the new dynamic ratio for the nodes.
+    """
+    computation_times = np.array(computation_time_list)
+    translation_times = np.array(translation_time_list)
+    
+    computation_sum_time = sum(computation_times)
+    translation_sum_time = sum(translation_times)
+    
+    total_time = computation_sum_time + translation_sum_time
+    computation_ratio = (computation_sum_time / total_time)
+    translation_ratio = (translation_sum_time / total_time)
+
+    ratio = max(computation_ratio, translation_ratio)
+    ratio_final = min(max(ratio, 0.05), 0.95)
+    
+    
+    return ratio_final
+
 def dynamic_weights_dis(dynamic_weights:np.ndarray, base_weights:np.ndarray, dynamic_ratio = 0.05) -> np.ndarray:
     """
     this func is used to compute the dynamic weights based on the dynamic weights and the base weights.

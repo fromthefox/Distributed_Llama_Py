@@ -6,7 +6,7 @@ import model_inference_module
 from model_inference_module import QKV_distribution
 import threading
 import torch
-from model_inference_module import inference_server, dynamic_weights_dis, proportinal_allocation_dis, total_score_dis, cal_new_base_weights
+from model_inference_module import inference_server, dynamic_weights_dis, proportinal_allocation_dis, total_score_dis, cal_new_base_weights, cal_new_dynamic_ratio
 
 def generation_loop(initial_input, max_tokens_length, model, tokenizer, config, server, allocation_list, user_config, dynamic_part, nodes_info_dict):
     """
@@ -54,6 +54,7 @@ def generation_loop(initial_input, max_tokens_length, model, tokenizer, config, 
             break
 
         # new_base_weights = cal_new_base_weights(computation_time_list=computation_time_list, translation_time_list=translation_time_list)
+        # new_dynamic_ratio = cal_new_dynamic_ratio(computation_time_list=computation_time_list, translation_time_list=translation_time_list)
         # dynamic_weights_array = dynamic_weights_dis(dynamic_weights=dynamic_part, base_weights=new_base_weights)
         # scores_list = total_score_dis(nodes_info_dict, dynamic_weights_array)
         # # here 128 is the unsplitted dim of the model.
