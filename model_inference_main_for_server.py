@@ -10,12 +10,16 @@ import model_inference_framework
 import numpy as np
 
 
-def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_path:str, config_path:str, user_config_path:str, dynamic_part:np.ndarray, nodes_info_dict:dict) -> str:
+def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_path:str, config_path:str, 
+                             user_config_path:str, dynamic_part:np.ndarray, nodes_info_dict:dict,
+                             performance_tracker=None, enable_dynamic_reallocation=False) -> str:
     """
     the whole framework of the project.
     :parma allocation_list: list, like [25, 48, 55] for unsplitted-dim == 128
     :parma config_path: str, the path to config file
-    :return: None, just do the inference
+    :parma performance_tracker: PerformanceTracker object for tracking node performance
+    :parma enable_dynamic_reallocation: bool, whether to enable dynamic reallocation
+    :return: str, the inference result
     """
 
     # 1.
@@ -37,7 +41,7 @@ def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_pa
     input_text = user_config_dict["user_config"]["input_text"]
     max_token_length = user_config_dict["user_config"]["max_token_length"]
 
-    # 3.2. start inference
+    # 3.2. start inference with dynamic reallocation support
     full_output = model_inference_framework.generation_loop(
         initial_input=input_text,
         max_tokens_length=max_token_length,
@@ -48,7 +52,9 @@ def infenerce_main_for_server(allocation_list:list, model_path:str, tokenizer_pa
         allocation_list=allocation_list,
         user_config=user_config_dict,
         dynamic_part=dynamic_part,
-        nodes_info_dict=nodes_info_dict
+        nodes_info_dict=nodes_info_dict,
+        performance_tracker=performance_tracker,
+        enable_dynamic_reallocation=enable_dynamic_reallocation
     )
 
     return full_output
